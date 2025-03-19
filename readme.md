@@ -1,6 +1,6 @@
-## Belk Code Skills
+## Overproof Code Skills
 
-This repository contains the code for the Belk skills.
+This repository contains the code for the Overproof skills.
 
 ## Setup
 

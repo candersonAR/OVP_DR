@@ -1,15 +1,16 @@
 from __future__ import annotations
 from types import SimpleNamespace
 
-from skill_framework import SkillInput, SkillVisualization, skill, SkillParameter, SkillOutput, SuggestedQuestion, ParameterDisplayDescription
+from skill_framework import SkillInput, SkillVisualization, skill, SkillParameter, SkillOutput, SuggestedQuestion, \
+    ParameterDisplayDescription
 from skill_framework.preview import preview_skill
 
 from ar_analytics import BreakoutAnalysis, BreakoutAnalysisTemplateParameterSetup
 from ar_analytics import ArUtils
+from overproof_data_provider import DataProvider
 
 import jinja2
 import logging
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,8 @@ logger = logging.getLogger(__name__)
     ]
 )
 def simple_breakout(parameters: SkillInput):
-    param_dict = {"periods": [], "metrics": None, "limit_n": 10, "breakouts": None, "growth_type": None, "other_filters": [], "growth_trend": None, "calculated_metric_filters": None}
+    param_dict = {"periods": [], "metrics": None, "limit_n": 10, "breakouts": None, "growth_type": None,
+                  "other_filters": [], "growth_trend": None, "calculated_metric_filters": None}
     print(f"Skill received following parameters: {parameters.arguments}")
     # Update param_dict with values from parameters.arguments if they exist
     for key in param_dict:
@@ -71,7 +73,7 @@ def simple_breakout(parameters: SkillInput):
 
     env = SimpleNamespace(**param_dict)
     BreakoutAnalysisTemplateParameterSetup(env=env)
-    env.ba = BreakoutAnalysis.from_env(env=env)
+    env.ba = BreakoutAnalysis.from_env(env=env, df_provider=DataProvider())
     _ = env.ba.run_from_env()
 
     tables = env.ba.get_display_tables()
@@ -80,17 +82,19 @@ def simple_breakout(parameters: SkillInput):
     insights_dfs = [env.ba.df_notes, env.ba.breakout_facts, env.ba.subject_facts]
     followups = env.ba.get_suggestions()
 
-    viz, insights, final_prompt = render_layout(tables, env.ba.title, env.ba.subtitle, insights_dfs, env.ba.warning_message)
+    viz, insights, final_prompt = render_layout(tables, env.ba.title, env.ba.subtitle, insights_dfs,
+                                                env.ba.warning_message)
 
     return SkillOutput(
         final_prompt=final_prompt,
         narrative=insights,
         visualizations=viz,
         parameter_display_descriptions=param_info,
-        followup_questions=[SuggestedQuestion(label=f.get("label"), question=f.get("question")) for f in followups if f.get("label")]
+        followup_questions=[SuggestedQuestion(label=f.get("label"), question=f.get("question")) for f in followups if
+                            f.get("label")]
     )
-    
-    
+
+
 def render_layout(tables, title, subtitle, insights_dfs, warnings):
     height = 80
     template = jinja2.Template(TEMPLATE)
@@ -117,6 +121,7 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings):
         rendered = template.render(**template_vars)
         viz_list.append(SkillVisualization(title=name, layout=rendered))
     return viz_list, insights, max_response_prompt
+
 
 MAX_PROMPT = """
 Anwer user question in 30 words or less using following facts: {{facts}}
@@ -148,7 +153,6 @@ Facts:
 {{facts}}
 Summary:
 """
-
 
 TEMPLATE = """
 {
@@ -261,6 +265,14 @@ TEMPLATE = """
 """
 
 if __name__ == '__main__':
-    skill_input: SkillInput = simple_breakout.create_input(arguments={'metrics': ["sales", "volume"], 'breakouts': ["brand", "manufacturer"], 'periods': ["2022"], 'growth_type': "Y/Y", 'other_filters': []})
+    # skill_input: SkillInput = simple_breakout.create_input(arguments={'metrics': ["menu_placements"], 'breakouts': ["cocktail_family"], 'periods': ["Jan 2025"], 'other_filters': [{"dim": "brand_name", "op": "=", "val": ["Papa's Pilar"]}]})
+    # skill_input = simple_breakout.create_input(
+    #     arguments={'metrics': ["menu_placements_share", "sold_9le"], 'breakouts': [], 'periods': ["Jan 2025"],
+    #                'other_filters': [{"dim": "brand_name", "op": "=", "val": ["Papa's Pilar"]}, {"dim": "venue__city", "op": "=", "val": ["Miami"]}]})
+
+    skill_input = simple_breakout.create_input(
+        arguments={'metrics': ["sold_9le", "menu_placements"], 'breakouts': ["cocktail_family"], 'periods': ["Q1 2024"],
+                   'other_filters': [{"dim": "brand_name", "op": "=", "val": ["Papa's Pilar"]}]})
+
     out = simple_breakout(skill_input)
     preview_skill(simple_breakout, out)
