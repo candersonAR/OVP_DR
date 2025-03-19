@@ -81,9 +81,10 @@ def simple_breakout(parameters: SkillInput):
 
     insights_dfs = [env.ba.df_notes, env.ba.breakout_facts, env.ba.subject_facts]
     followups = env.ba.get_suggestions()
+    footnotes = env.ba.footnotes
 
     viz, insights, final_prompt = render_layout(tables, env.ba.title, env.ba.subtitle, insights_dfs,
-                                                env.ba.warning_message)
+                                                env.ba.warning_message, footnotes)
 
     return SkillOutput(
         final_prompt=final_prompt,
@@ -94,8 +95,16 @@ def simple_breakout(parameters: SkillInput):
                             f.get("label")]
     )
 
+def find_footnote(footnotes, df):
+    footnotes = footnotes or {}
+    dim_note = None
+    for col in df.columns:
+        if col in footnotes:
+            dim_note = footnotes.get(col)
+            break
+    return dim_note
 
-def render_layout(tables, title, subtitle, insights_dfs, warnings):
+def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes):
     height = 80
     template = jinja2.Template(TEMPLATE)
     facts = []
@@ -109,14 +118,15 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings):
     ar_utils = ArUtils()
     insights = ar_utils.get_llm_response(insight_template)
     viz_list = []
-
     for name, table in tables.items():
+        dim_note = find_footnote(footnotes, table)
         template_vars = {
             'dfs': [table],
             "height": height,
             "title": title,
             "subtitle": subtitle,
-            "warnings": warnings
+            "warnings": warnings,
+            "dim_note": dim_note
         }
         rendered = template.render(**template_vars)
         viz_list.append(SkillVisualization(title=name, layout=rendered))
@@ -124,7 +134,7 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings):
 
 
 MAX_PROMPT = """
-Anwer user question in 30 words or less using following facts: {{facts}}
+Answer user question in 30 words or less using following facts: {{facts}}
 """
 
 INSIGHT_PROMPT = """
