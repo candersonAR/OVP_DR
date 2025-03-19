@@ -4,13 +4,15 @@ import numpy as np
 
 class DataProvider(object):
     def __init__(self):
+        # make sure this is correct
+        self.menu_dataset = "c50c3d81-682f-463e-a924-747d62e62318" # Ar Max Menu Table
+        self.depletion_dataset = "d91a492a-d62a-405e-90d8-0b9a3984f5ea" # Ar Max Menu Table
+
         self.cross_dims = ["cocktail__name", "cocktail__style", "cocktail_family", "cocktail_group"]
         # todo: sales uplift
         self.cross_metrics = ["sales_uplift"]
         # joining dimensions (lowest common granularity) between menu and depletions data
         self.common_dims = ["venue_id", "product_id"]
-        self.menu_dataset = "3aa4dfae-5019-4657-a9d8-c9782f61bb09"
-        self.depletion_dataset = "a3c538ef-8ddf-4cfd-89ff-df03053f12cc"
         self.menu_metrics = ["menu_placements", "venue_placements"]
         self.depletions_metrics = ["sold_9le", "sold_cases"]
         self.psudo_join_col = "join_col"
@@ -23,6 +25,7 @@ class DataProvider(object):
                   order_cols=None,
                   query_row_limit=None):
 
+        df = pd.DataFrame()
         # todo: handle order cols, only used in trend to determine top n
 
         breakouts = breakouts or []
