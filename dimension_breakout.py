@@ -81,10 +81,13 @@ def simple_breakout(parameters: SkillInput):
 
     insights_dfs = [env.ba.df_notes, env.ba.breakout_facts, env.ba.subject_facts]
     followups = env.ba.get_suggestions()
-    footnotes = env.ba.footnotes
 
-    viz, insights, final_prompt = render_layout(tables, env.ba.title, env.ba.subtitle, insights_dfs,
-                                                env.ba.warning_message, footnotes)
+    viz, insights, final_prompt = render_layout(tables,
+                                                env.ba.title,
+                                                env.ba.subtitle,
+                                                insights_dfs,
+                                                env.ba.warning_message,
+                                                env.ba.footnotes)
 
     return SkillOutput(
         final_prompt=final_prompt,
@@ -270,6 +273,26 @@ TEMPLATE = """
     }{% if not loop.last %},{% endif %}
     {% set ns.counter = height*loop.index %}
     {% endfor %}
+    {% if dim_note %}
+        ,{
+            "name": "footer",
+            "type": "Header",
+            "row": {{ns.counter + chart_start}},
+            "column": 1,
+            "width": 120,
+            "height": 2,
+            "style": {
+                "textAlign": "left",
+                "verticalAlign": "middle",
+                "fontSize": "14px",
+                "color": "#333",
+                "fontFamily": "Arial, sans-serif",
+                "fontStyle": "italic",
+                "fontWeight": "normal"
+            },
+            "text": "*{{dim_note}}"
+        }
+    {% endif %}
 ]
 }
 """

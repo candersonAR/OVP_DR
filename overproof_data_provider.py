@@ -6,9 +6,9 @@ class DataProvider(object):
     def __init__(self):
         # make sure this is correct
         self.menu_dataset = "c50c3d81-682f-463e-a924-747d62e62318" # Ar Max Menu Table
-        self.depletion_dataset = "d91a492a-d62a-405e-90d8-0b9a3984f5ea" # Ar Max Menu Table
+        self.depletion_dataset = "d91a492a-d62a-405e-90d8-0b9a3984f5ea" # Ar Max Depletions
 
-        self.cross_dims = ["cocktail__name", "cocktail__style", "cocktail_family", "cocktail_group"]
+        self.cross_dims = ["cocktail__name", "cocktail__style", "cocktail_family", "cocktail_group", "cocktail__flavors", "cocktail__derived_from"]
         # todo: sales uplift
         self.cross_metrics = ["sales_uplift"]
         # joining dimensions (lowest common granularity) between menu and depletions data
