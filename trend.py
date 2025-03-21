@@ -10,6 +10,8 @@ from ar_analytics import ArUtils
 import jinja2
 import logging
 
+from overproof_data_provider import DataProvider
+
 RUNNING_LOCALLY = False
 
 logger = logging.getLogger(__name__)
@@ -68,7 +70,7 @@ def trend(parameters: SkillInput):
 
     env = SimpleNamespace(**param_dict)
     TrendTemplateParameterSetup(env=env)
-    env.trend = AdvanceTrend.from_env(env=env)
+    env.trend = OverproofTrend.from_env(env=env)
     df = env.trend.run_from_env()
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.trend.paramater_display_infomation.items()]
     charts = env.trend.default_chart
@@ -90,6 +92,205 @@ def trend(parameters: SkillInput):
         parameter_display_descriptions=param_info,
         followup_questions=[]
     )
+
+import pandas as pd
+import numpy as np
+class OverproofTrend(AdvanceTrend):
+
+    # function to get the trend data for the analysis
+    def get_trend_data(self, metrics, dims, filters, top_n, top_n_direction, required_dim_vals):
+        use_max_sql_gen = True
+
+        dp = DataProvider()
+
+        referenced_table, sql = self.get_referenced_table_and_starting_sql(self.table, self.view)
+
+        # process dim filters
+        for f in filters:
+            for dim in dims:
+                if f['col'] == dim:
+                    # make sure all dim filters are also required dim vals
+                    required_dim_vals[dim].append(f['val'])
+                    # remove dim ambiguity
+                    f['col'] = f"{referenced_table}.{dim}" if not use_max_sql_gen else dim
+                    break
+
+        # format metric sql
+        calculated_metrics = []
+        non_calculated_metrics = []
+
+        if self.metric_name_column:
+            c_metrics, nc_metrics = self.get_metric_sql(self.value_metric)
+            if nc_metrics:
+                non_calculated_metrics.append(nc_metrics)
+            else:
+                calculated_metrics.append(c_metrics)
+            dims.append(self.metric_name_column)
+        else:
+            for metric in metrics:
+                c_metrics, nc_metrics = self.get_metric_sql(metric)
+                if nc_metrics:
+                    non_calculated_metrics.append(nc_metrics)
+                else:
+                    calculated_metrics.append(c_metrics)
+
+        if dims:
+            # Get the data for the top 10 dim values (+ required dim values) by the first metric for each dimension
+            dim_dfs = []
+
+            for dim in dims:
+                top_dim_vals = []
+                if top_n:
+                    first_metric = metrics[0]
+                    top_dim_df = dp.pull_data(metrics=[first_metric],
+                                filters=filters,
+                                breakouts=[dim],
+                                order_cols=[{"col": first_metric["name"], "direction": top_n_direction}],
+                                query_row_limit=top_n)
+                    
+                    top_dim_vals = list(top_dim_df[dim].unique())
+
+                if required_dim_vals.get(dim):
+                    top_dim_vals = list(dict.fromkeys(top_dim_vals + required_dim_vals[dim]))
+                else:
+                    top_dim_vals = top_dim_vals
+
+                if top_dim_vals:
+                    datapull_filters = filters + [{"col": dim, "op": "IN", "val": top_dim_vals}]
+                else:
+                    datapull_filters = filters
+
+                df = dp.pull_data(metrics=metrics,
+                                filters=datapull_filters,
+                                breakouts=[dim] + [f"max_time_{self.time_granularity}"],
+                                order_cols=[{"col": f"max_time_{self.time_granularity}", "alias": "date_column", "direction": "ASC"}],
+                                query_row_limit=self.row_limit)
+                
+                df.rename(columns={f"max_time_{self.time_granularity}": self.time_granularity}, inplace=True)
+
+                self.check_row_limit(df)
+
+                # calculate totals
+                if not self.hide_totals:
+                    totals_df = self.calculate_totals_df(df, calculated_metrics=calculated_metrics, non_calculated_metrics=non_calculated_metrics, filters=filters, dim=dim)
+                    df = pd.concat([df, totals_df], axis=0)
+
+                # rename dim values to 'dim_val', create dim column
+                df['dim'] = dim
+                df.rename(columns={dim: 'dim_val'}, inplace=True)
+
+                dim_dfs.append(df)
+
+            df = pd.concat(dim_dfs, axis=0)
+
+        else:
+            df = dp.pull_data(metrics=metrics,
+                            filters=filters,
+                            breakouts=[f"max_time_{self.time_granularity}"],
+                            order_cols=[{"col": f"max_time_{self.time_granularity}", "alias": "date_column", "direction": "ASC"}],
+                            query_row_limit=self.row_limit)
+            df.rename(columns={f"max_time_{self.time_granularity}": self.time_granularity}, inplace=True)
+        
+            self.check_row_limit(df)
+
+            # calculate totals
+            if not self.hide_totals:
+                totals_df = self.calculate_totals_df(df, calculated_metrics=calculated_metrics, non_calculated_metrics=non_calculated_metrics, filters=filters)
+                df = pd.concat([df, totals_df], axis=0)
+
+        if dims:
+            id_vars = ['date_column', self.date_alias, 'dim_val', 'dim']
+            df['dim'] = df['dim'].astype(str)
+        else:
+            id_vars = ['date_column', self.date_alias]
+
+        if self.date_sort_col:
+            id_vars.append(self.pandas_sort_col)
+
+        metric_cols = [metric["name"] for metric in metrics]
+        if not self.metric_name_column:
+            df = df.melt(id_vars=id_vars, value_vars=metric_cols, var_name='metric', value_name='value')
+        else:
+            df = df.rename(columns={self.metric_name_column: 'metric', self.value_metric["col"]: 'value'})
+
+        df['value'] = df['value'].astype(float)
+
+        # sql query forces lowercase cols, revert back to original case
+        metric_map = {metric.lower(): metric for metric in metric_cols}
+        df['metric'] = df['metric'].apply(lambda x: metric_map.get(x, x))
+
+        print(df.head().to_string())
+
+        if not self.date_sort_col:
+            df["date_column"] = pd.to_datetime(df["date_column"])
+
+        if len(df) > 0:
+            self.actual_first_period, self.actual_last_period = df[self.date_alias].iloc[0], df[self.date_alias].iloc[-1]
+        else:
+            self.actual_first_period, self.actual_last_period = "", ""
+
+        self.show_labels = len(df["date_column"].unique()) < 25
+
+        return df
+    
+    # function to get the metric sql for the analysis
+    def get_metric_sql(self, metric):
+        calculated_metrics, non_calculated_metrics = None, None
+        if metric.get("sql") and metric.get("col"):
+            calculated_metrics = metric
+        elif metric.get("col"):
+            non_calculated_metrics = metric["name"]
+        return calculated_metrics, non_calculated_metrics
+    
+    # function to get the total for all time period. this is being conditionally displayed in the table
+    def calculate_totals_df(self, df, calculated_metrics=[], non_calculated_metrics=[], filters=[], dim=None):
+
+        dp = DataProvider()
+
+        dim_members = df[dim].unique().tolist() if dim else None
+
+        sum_agg_df = pd.DataFrame()
+        calculated_agg_df = pd.DataFrame()
+
+        # seperate additive and non-additive metrics, sum the additive metrics and pull the data for non-additive metrics
+        if non_calculated_metrics:
+            sum_agg_df = df.groupby(dim) if dim else df
+            sum_agg_df = sum_agg_df.agg({metric: "sum" for metric in non_calculated_metrics}).reset_index()
+
+        if calculated_metrics:
+
+            member_filters = [{"col": dim, "op": "IN", "val": dim_members}] if dim and dim_members else []
+            metric_in_row_dim = []
+
+            if self.metric_name_column:
+                metric_in_row_dim.append(self.metric_name_column)
+
+            dims = [d for d in ([dim] + metric_in_row_dim) if d]
+
+            calculated_agg_df = dp.pull_data(metrics=calculated_metrics,
+                                          filters=filters + member_filters,
+                                          breakouts=dims)
+            
+        # merge dfs
+        if dim:
+            if not sum_agg_df.empty and not calculated_agg_df.empty:
+                totals_df = pd.merge(sum_agg_df, calculated_agg_df, on=dim, how='inner')
+            elif not sum_agg_df.empty:
+                totals_df = sum_agg_df
+            else:
+                totals_df = calculated_agg_df
+        else:
+            if not sum_agg_df.empty:
+                sum_agg_df = sum_agg_df.set_index('index').T
+            totals_df = pd.concat([sum_agg_df, calculated_agg_df], axis=1)
+
+        # add columns to match df structure
+        totals_df["date_column"] = np.nan
+        totals_df[self.date_alias] = self.total_col
+        if self.date_sort_col:
+            totals_df[self.pandas_sort_col] = np.nan
+
+        return totals_df
 
 
 MAX_PROMPT = """
