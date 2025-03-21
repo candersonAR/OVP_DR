@@ -10,9 +10,8 @@ class TestLegacyBreakout:
         Checks to see if the simple breakout skill runs without errors
         '''
 
-        # currently assumes it's attached to the pasta dataset
-
-        skill_input: SkillInput = simple_breakout.create_input(arguments={'metrics': ["sales", "volume"], 'breakouts': ["brand", "manufacturer"], 'periods': ["2022"], 'growth_type': "Y/Y", 'other_filters': []})
+        skill_input: SkillInput = simple_breakout.create_input(arguments={'metrics': ["sold_9le", "menu_placements"], 'breakouts': ["cocktail_family"], 'periods': ["Q1 2024"],
+                   'other_filters': [{"dim": "brand_name", "op": "=", "val": ["Papa's Pilar"]}]})
         out = simple_breakout(skill_input)
         preview_skill(simple_breakout, out)
 
