@@ -119,3 +119,28 @@ class DataProvider(object):
             df = df.sort_values(by=["date_column"], ascending=True)
 
         return df
+    
+    # TODO: Remove once overproof env is upgraded to a newer version of ar-analytics, specifically after commit 1113da3bd0ff68da9314a3aad8166ebd4e4a4672
+    def breakout_analysis(self,
+                          metrics,
+                          breakouts=None,
+                          filters=None,
+                          order_cols=None,
+                          query_row_limit=None):
+        
+        df = self.pull_data(metrics, breakouts, filters, order_cols, query_row_limit)
+        
+        return df
+    
+    # TODO: Remove once overproof env is upgraded to a newer version of ar-analytics, specifically after commit 1113da3bd0ff68da9314a3aad8166ebd4e4a4672
+    def metric_tree_analysis(self,
+                            metrics,
+                            breakouts=None,
+                            filters=None,
+                            order_cols=None,
+                            query_row_limit=None):
+        
+        df = self.pull_data(metrics, breakouts, filters, order_cols, query_row_limit)
+        
+        return df
+    
