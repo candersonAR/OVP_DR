@@ -29,19 +29,6 @@ class TestTrend:
 
         assert True
 
-    # def test_full_trend_skill(self):
-    #     '''
-    #     Checks to see if the full trend skill runs without errors
-    #     '''
-
-    #     # currently assumes it's attached to the pasta dataset
-
-    #     skill_input: SkillInput = trend.create_input(arguments={'metrics': ["sold_9le", "menu_placements"], 'other_filters': [{"dim": "brand_name", "op": "=", "val": ["Papa's Pilar"]}]})
-    #     out = trend(skill_input)
-    #     preview_skill(trend, out)
-
-    #     assert True
-
     def test_single_metric(self):
         """Test with a single metric, no growth type, no breakout"""
 
