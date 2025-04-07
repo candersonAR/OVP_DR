@@ -8,6 +8,8 @@ from skill_framework.preview import preview_skill
 from ar_analytics.driver_analysis import DriverAnalysis, DriverAnalysisTemplateParameterSetup
 from ar_analytics import ArUtils
 
+from overproof_data_provider import DataProvider
+
 import jinja2
 import logging
 import uuid
@@ -70,7 +72,7 @@ def simple_metric_driver(parameters: SkillInput):
 
     env = SimpleNamespace(**param_dict)
     DriverAnalysisTemplateParameterSetup(env=env)
-    env.da = DriverAnalysis.from_env(env=env)
+    env.da = DriverAnalysis.from_env(env=env, df_provider=DataProvider())
 
     _ = env.da.run_from_env()
 
@@ -289,19 +291,3 @@ TEMPLATE = """
 ]
 }
 """
-
-if __name__ == '__main__':
-    # skill_input: SkillInput = simple_metric_driver.create_input(arguments={'metric': "sales", 'breakouts': ["brand", "manufacturer"],'limit_n': 10, 'periods': ["2023"], 'growth_type': "Y/Y", 'other_filters': []})
-    skill_input: SkillInput = simple_metric_driver.create_input(
-        arguments={
-  "breakouts": [
-    "brand"
-  ],
-  "metric": "sales",
-  "periods": [
-    "2022",
-    "2023"
-  ]
-})
-    out = simple_metric_driver(skill_input)
-    preview_skill(simple_metric_driver, out)
