@@ -264,7 +264,7 @@ def market_share_analysis(parameters: SkillInput):
 
     return SkillOutput(
         final_prompt=final_prompt,
-        narrative=insights,
+        narrative=None,
         visualizations=viz,
         parameter_display_descriptions=param_info,
         followup_questions=[SuggestedQuestion(label=f.get("label"), question=f.get("question")) for f in followups if
@@ -306,10 +306,11 @@ def get_data(df):
     for _, row in df.iterrows():
         new_row = []
         is_subject = has_subject and bool(row['is_subject'])
+        click_followup = row.get("msg")
 
         for col, val in row.items():
             # Skip the is_subject column from output
-            if col == 'is_subject':
+            if col in ['is_subject', 'is_collapsible', 'msg']:
                 continue
 
             if pd.isna(val):
@@ -318,9 +319,15 @@ def get_data(df):
             if is_subject:
                 val = {'style': {'background-color': '#FFF0BE'}, 'value': val}
 
+            if col == "msg":
+                val = {}
+
             new_row.append(val)
 
-        data.append(new_row)
+        if click_followup:
+            data.append({"data": new_row, "onClick": {"args": click_followup, "event": "askQuestion"}})
+        else:
+            data.append(new_row)
     return data
 
 def get_table_layout_vars_msa(df):
@@ -340,7 +347,7 @@ def get_table_layout_vars_msa(df):
     col_defs = []
     columns = list(df.columns)
     for ix, col in enumerate(columns):
-        if col in ["is_subject", "is_collapsible"]:
+        if col in ['is_subject', 'is_collapsible', 'msg']:
             continue
         if ix == 0:
             col_defs.append({"name": col, "style": {"textAlign": "left", "white-space": "pre"}})
@@ -370,7 +377,8 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, i
         "sub_headline": subtitle or "Market Share Analysis",
         "hide_growth_warning": False if warnings else True,
         "exec_summary": insights if insights else "No Insights.",
-        "warning": warnings
+        "warning": warnings,
+        "hide_footer": True
     }
 
     viz_layout = json.loads(viz_layout)

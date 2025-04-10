@@ -1159,7 +1159,7 @@ class MarketShareBreakdown:
                     df[col] = df[col].apply(lambda x: self.remove_html_brackets(x))
 
             cols_to_keep = ['parent_dim_member', 'dim_member', 'share_curr', 'share_comp', 'share_change',
-                            'share_change_mat', 'is_subject']
+                            'share_change_mat', 'is_subject', 'msg']
             if 'is_collapsible' in df.columns:
                 cols_to_keep.append('is_collapsible')
             col_rename_dict = {}
