@@ -1,12 +1,17 @@
 from __future__ import annotations
+from dataclasses import dataclass
+import json
 from types import SimpleNamespace
+from typing import Optional
 
 from skill_framework import SkillInput, SkillVisualization, skill, SkillParameter, SkillOutput, SuggestedQuestion, \
     ParameterDisplayDescription
 from skill_framework.preview import preview_skill
 from skill_framework.skills import ExportData
 
-from ar_analytics import MarketShareBreakdown, MSBTemplateParameterSetup, ArUtils
+# from ar_analytics import MarketShareBreakdown, MSBTemplateParameterSetup, ArUtils
+from ar_analytics import ArUtils
+from market_share_breakdown import MarketShareBreakdown, MSBTemplateParameterSetup
 from ar_analytics.defaults import market_share_analysis_config
 
 import jinja2
@@ -15,6 +20,105 @@ import logging
 from overproof_data_provider import DataProvider
 
 logger = logging.getLogger(__name__)
+
+# MSACONFIG should only be used for local testing
+@dataclass
+class MSACONFIG:
+    global_view: Optional[str] = None
+    market_view: Optional[str] = None
+    include_drivers: Optional[str] = None
+    market_cols: Optional[str] = None
+    impact_calcs: Optional[str] = None
+    decomposition_display_config: Optional[str] = None
+    subject_metric_config: Optional[str] = None
+
+DEFAULT_GLOBAL_VIEW = """
+[
+  {
+    "dim": "state_name",
+    "type": "share",
+    "exclude_in_mkt_size": true,
+    "tab_label": "State",
+    "drilldown": {
+      "dim": "venue_city",
+      "type": "contribution"
+    }
+  },
+  {
+    "dim": "supplier_name",
+    "type": "contribution",
+    "exclude_in_mkt_size": false,
+    "tab_label": "Supplier",
+    "drilldown": {
+      "dim": "state_name",
+      "type": "contribution"
+    }
+  }
+]
+"""
+
+DEFAULT_MARKET_VIEW = """
+[
+  {
+    "dim": "product_category_name",
+    "type": "share",
+    "exclude_in_mkt_size": true,
+    "tab_label": "Category",
+    "drilldown": {
+         "dim": "brand_name",
+         "type": "contribution"
+      }
+  },
+  {
+    "dim": "cocktail__name",
+    "type": "share",
+    "exclude_in_mkt_size": true,
+    "tab_label": "Cocktail"
+  }
+]
+"""
+
+DEFAULT_INCLUDE_DRIVERS = True
+
+DEFAULT_MARKET_COLS = """
+["state_name"]
+"""
+
+DEFAULT_IMPACT_CALCS = """"""
+
+DEFAULT_DECOMPOSITION_DISPLAY_CONFIG = """"""
+
+# DEFAULT_SUBJECT_METRIC_CONFIG = """
+# {
+#     "Metric Relationship": {
+#         "menu_placements": ["pct_change"]
+#     }
+# }
+# """
+
+DEFAULT_SUBJECT_METRIC_CONFIG = """"""
+
+# uncomment for local testing
+default_msa_config = MSACONFIG(
+    global_view=DEFAULT_GLOBAL_VIEW,
+    market_view=DEFAULT_MARKET_VIEW,
+    include_drivers=DEFAULT_INCLUDE_DRIVERS,
+    market_cols=DEFAULT_MARKET_COLS,
+    impact_calcs=DEFAULT_IMPACT_CALCS,
+    decomposition_display_config=DEFAULT_DECOMPOSITION_DISPLAY_CONFIG,
+    subject_metric_config=DEFAULT_SUBJECT_METRIC_CONFIG
+)
+
+# uncomment for adding to env
+# default_msa_config = MSACONFIG(
+#     global_view="",
+#     market_view="",
+#     include_drivers=DEFAULT_INCLUDE_DRIVERS,
+#     market_cols="",
+#     impact_calcs="",
+#     decomposition_display_config="",
+#     subject_metric_config=""
+# )
 
 @skill(
     name=market_share_analysis_config.name,
@@ -54,32 +158,38 @@ logger = logging.getLogger(__name__)
         ),
         SkillParameter(
             name="global_view",
-            parameter_type="code"
+            parameter_type="code",
+            default_value=default_msa_config.global_view
         ),
         SkillParameter(
             name="market_view",
-            parameter_type="code"
+            parameter_type="code",
+            default_value=default_msa_config.market_view
         ),
         SkillParameter(
             name="include_drivers",
             parameter_type="code",
-            default_value="True"
+            default_value=default_msa_config.include_drivers
         ),
         SkillParameter(
             name="market_cols",
-            parameter_type="code"
+            parameter_type="code",
+            default_value=default_msa_config.market_cols
         ),
         SkillParameter(
             name="impact_calcs",
-            parameter_type="code"
+            parameter_type="code",
+            default_value=default_msa_config.impact_calcs
         ),
         SkillParameter(
             name="decomposition_display_config",
-            parameter_type="code"
+            parameter_type="code",
+            default_value=default_msa_config.decomposition_display_config
         ),
         SkillParameter(
             name="subject_metric_config",
-            parameter_type="code"
+            parameter_type="code",
+            default_value=default_msa_config.subject_metric_config
         ),
         SkillParameter(
             name="max_prompt",
@@ -99,11 +209,19 @@ def market_share_analysis(parameters: SkillInput):
     print(f"Skill received following parameters: {parameters}")
     param_dict = {"periods": [], "metric": None, "limit_n": 20, "growth_type": "Y/Y", "other_filters": [], "global_view": [], "market_view": [],
                   "include_drivers": True, "market_cols": [], "impact_calcs": {}, "decomposition_display_config": {}, "subject_metric_config": {}}
+    
+    code_params = ["global_view", "market_view", "market_cols", "impact_calcs", "decomposition_display_config", "subject_metric_config"]
 
     # Update param_dict with values from parameters.arguments if they exist
     for key in param_dict:
         if hasattr(parameters.arguments, key) and getattr(parameters.arguments, key) is not None:
             param_dict[key] = getattr(parameters.arguments, key)
+            if key in code_params and isinstance(param_dict[key], str) and param_dict[key]:
+                try: 
+                    param_dict[key] = json.loads(param_dict[key])
+                except json.JSONDecodeError:
+                    logger.error(f"Error decoding JSON for parameter: {key}")
+                    param_dict[key] = {}
 
     if str(param_dict["growth_type"]).lower() not in ["y/y", 'p/p']:
         param_dict["growth_type"] = "Y/Y"
@@ -145,6 +263,32 @@ def market_share_analysis(parameters: SkillInput):
         export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
     )
 
+def transform_df_into_datatable_data(df):
+
+    return df.fillna('N/A').to_numpy().tolist()
+
+    if "parent_dim_member" in df.columns and "is_collapsible" in df.columns:
+
+        row_data = []
+
+        parent_dim_member_idx = df.columns.get_loc("parent_dim_member")
+        is_collapsible_idx = df.columns.get_loc("is_collapsible")
+
+        for index, row in df.iterrows():
+
+            is_collapsible = row[is_collapsible_idx]
+            parent_dim_member = row[parent_dim_member_idx]
+
+            if not is_collapsible and parent_dim_member != "":
+                # get row without parent_dim_member and is_collapsible
+
+                row_data.append(row[:parent_dim_member_idx] + row[parent_dim_member_idx+2:])
+            else:
+
+                node = {"data"}
+
+    else:
+        return df.fillna('N/A').to_numpy().tolist()
 
 def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, insight_prompt):
     height = 80
@@ -165,7 +309,7 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, i
     for name, table in tables.items():
         export_data[name] = table
         template_vars = {
-            'dfs': [table],
+            'dfs': [transform_df_into_datatable_data(table)],
             "height": height,
             "title": title,
             "subtitle": subtitle,
@@ -264,7 +408,7 @@ TEMPLATE = """
                 {% endif %}
             {% endfor %}
         ],
-        "data": {{ df.fillna('N/A').to_numpy().tolist() | tojson }},
+        "data": {{ df | tojson }},
         "styles": {
                     "alternateRowColor": "#f9f9f9",
                     "fontFamily": "Arial, sans-serif",
