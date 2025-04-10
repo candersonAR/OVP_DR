@@ -12,6 +12,8 @@ from ar_analytics.defaults import market_share_analysis_config
 import jinja2
 import logging
 
+from overproof_data_provider import DataProvider
+
 logger = logging.getLogger(__name__)
 
 @skill(
@@ -50,35 +52,35 @@ logger = logging.getLogger(__name__)
             is_multi=True,
             description="If provided by the user, list time periods in a format 'q2 2023', '2021', 'jan 2023', 'mat nov 2022', 'mat q1 2021', 'ytd q4 2022', 'ytd 2023', 'ytd', 'mat', '<no_period_provided>' or '<since_launch>'. Use knowledge about today's date to handle relative periods and open ended periods. If given a range, for example 'last 3 quarters, 'between q3 2022 to q4 2023' etc, enumerate the range into a list of valid dates. Don't include natural language words or phrases, only valid dates like 'q3 2023', '2022', 'mar 2020', 'ytd sep 2021', 'mat q4 2021', 'ytd q1 2022', 'ytd 2021', 'ytd', 'mat', '<no_period_provided>' or '<since_launch>' etc."
         ),
-        # SkillParameter(
-        #     name="global_view",
-        #     parameter_type="code"
-        # ),
-        # SkillParameter(
-        #     name="market_view",
-        #     parameter_type="code"
-        # ),
-        # SkillParameter(
-        #     name="include_drivers",
-        #     parameter_type="code",
-        #     default_value="True"
-        # ),
-        # SkillParameter(
-        #     name="market_cols",
-        #     parameter_type="code"
-        # ),
-        # SkillParameter(
-        #     name="impact_calcs",
-        #     parameter_type="code"
-        # ),
-        # SkillParameter(
-        #     name="decomposition_display_config",
-        #     parameter_type="code"
-        # ),
-        # SkillParameter(
-        #     name="subject_metric_config",
-        #     parameter_type="code"
-        # ),
+        SkillParameter(
+            name="global_view",
+            parameter_type="code"
+        ),
+        SkillParameter(
+            name="market_view",
+            parameter_type="code"
+        ),
+        SkillParameter(
+            name="include_drivers",
+            parameter_type="code",
+            default_value="True"
+        ),
+        SkillParameter(
+            name="market_cols",
+            parameter_type="code"
+        ),
+        SkillParameter(
+            name="impact_calcs",
+            parameter_type="code"
+        ),
+        SkillParameter(
+            name="decomposition_display_config",
+            parameter_type="code"
+        ),
+        SkillParameter(
+            name="subject_metric_config",
+            parameter_type="code"
+        ),
         SkillParameter(
             name="max_prompt",
             parameter_type="prompt",
@@ -108,7 +110,15 @@ def market_share_analysis(parameters: SkillInput):
 
     env = SimpleNamespace(**param_dict)
     MSBTemplateParameterSetup(env=env)
-    env.msa = MarketShareBreakdown.from_env(env=env)
+    env.msa = MarketShareBreakdown(
+        sql_exec=env.msb_parameters["con"],
+        dim_hierarchy=env.msb_parameters["dim_hierarchy"],
+        constrained_values=env.msb_parameters["constrained_values"],
+        compare_date_warning_msg=env.msb_parameters["compare_date_warning_msg"],
+        df_provider=DataProvider()
+    )
+    env.msa.env = env
+
     result_dfs = env.msa.run_from_env()
     print(result_dfs.keys())
     tables = env.msa.get_display_tables()
