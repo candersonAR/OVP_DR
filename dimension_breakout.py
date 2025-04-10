@@ -1,22 +1,29 @@
 from __future__ import annotations
 from types import SimpleNamespace
 
-from skill_framework import SkillInput, SkillVisualization, skill, SkillParameter, SkillOutput, SuggestedQuestion, \
-    ParameterDisplayDescription
+from skill_framework import SkillInput, SkillVisualization, skill, SkillParameter, SkillOutput, SuggestedQuestion, ParameterDisplayDescription
 from skill_framework.preview import preview_skill
+from skill_framework.skills import ExportData
+from skill_framework.layouts import wire_layout
 
-from ar_analytics import BreakoutAnalysis, BreakoutAnalysisTemplateParameterSetup
-from ar_analytics import ArUtils
+from ar_analytics import BreakoutAnalysis, BreakoutAnalysisTemplateParameterSetup, ArUtils
+from ar_analytics.defaults import dimension_breakout_config, default_table_layout, get_table_layout_vars
 from overproof_data_provider import DataProvider
 
 import jinja2
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
 @skill(
-    name="dimension_breakout",
-    description="The breakout skill is designed to enable comparisons and analyses of subjects that belong to the same group to show how these subjects rank or differ from one another. \nThis skill also provides multiple KPIs across a subject. \nThis skill should answer questions without breakouts, like a single value. \nIf a time period is one of the breakouts, this may not be the correct skill. However, if a single time period is asked for this likely is the correct skill to choose. \nFor single-point growth questions e.g. \"what was [filter] growth in[period]\", use this skill to analyze within the relevant dimension.",
+    name=dimension_breakout_config.name,
+    llm_name=dimension_breakout_config.llm_name,
+    description=dimension_breakout_config.description,
+    capabilities=dimension_breakout_config.capabilities,
+    limitations=dimension_breakout_config.limitations,
+    example_questions=dimension_breakout_config.example_questions,
+    parameter_guidance=dimension_breakout_config.parameter_guidance,
     parameters=[
         SkillParameter(
             name="periods",
@@ -31,7 +38,8 @@ logger = logging.getLogger(__name__)
         ),
         SkillParameter(
             name="limit_n",
-            description="limit the number of values by this number"
+            description="limit the number of values by this number",
+            default_value=10
         ),
         SkillParameter(
             name="breakouts",
@@ -59,12 +67,29 @@ logger = logging.getLogger(__name__)
         SkillParameter(
             name="calculated_metric_filters",
             description='This parameter allows filtering based on computed values like growth, delta, or share. The computed values are only available for metrics selected for this analysis. The available computations are growth, delta and share. It accepts a list of conditions, where each condition is a dictionary with:  metric: The metric being filtered. computation: The computation (growth, delta, share) operator: The comparison operator (">", "<", ">=", "<=", "between", "=="). value: The numeric threshold for filtering. If using "between", provide a list [min, max]. scale: the scale of value (percentage, bps, absolute)'
+        ),
+        SkillParameter(
+            name="max_prompt",
+            parameter_type="prompt",
+            description="Prompt being used for max response.",
+            default_value=dimension_breakout_config.max_prompt
+        ),
+        SkillParameter(
+            name="insight_prompt",
+            parameter_type="prompt",
+            description="Prompt being used for detailed insights.",
+            default_value=dimension_breakout_config.insight_prompt
+        ),
+        SkillParameter(
+            name="table_viz_layout",
+            parameter_type="visualization",
+            description="Table Viz Layout",
+            default_value=default_table_layout
         )
     ]
 )
 def simple_breakout(parameters: SkillInput):
-    param_dict = {"periods": [], "metrics": None, "limit_n": 10, "breakouts": None, "growth_type": None,
-                  "other_filters": [], "growth_trend": None, "calculated_metric_filters": None}
+    param_dict = {"periods": [], "metrics": None, "limit_n": 10, "breakouts": None, "growth_type": None, "other_filters": [], "growth_trend": None, "calculated_metric_filters": None}
     print(f"Skill received following parameters: {parameters.arguments}")
     # Update param_dict with values from parameters.arguments if they exist
     for key in param_dict:
@@ -82,21 +107,25 @@ def simple_breakout(parameters: SkillInput):
     insights_dfs = [env.ba.df_notes, env.ba.breakout_facts, env.ba.subject_facts]
     followups = env.ba.get_suggestions()
 
-    viz, insights, final_prompt = render_layout(tables,
-                                                env.ba.title,
-                                                env.ba.subtitle,
-                                                insights_dfs,
-                                                env.ba.warning_message,
-                                                env.ba.footnotes)
+    viz, insights, final_prompt, export_data = render_layout(tables,
+                                                            env.ba.title,
+                                                            env.ba.subtitle,
+                                                            insights_dfs,
+                                                            env.ba.warning_message,
+                                                            env.ba.footnotes,
+                                                            parameters.arguments.max_prompt,
+                                                            parameters.arguments.insight_prompt,
+                                                            parameters.arguments.table_viz_layout)
 
     return SkillOutput(
         final_prompt=final_prompt,
-        narrative=insights,
+        narrative=None,
         visualizations=viz,
         parameter_display_descriptions=param_info,
-        followup_questions=[SuggestedQuestion(label=f.get("label"), question=f.get("question")) for f in followups if
-                            f.get("label")]
+        followup_questions=[SuggestedQuestion(label=f.get("label"), question=f.get("question")) for f in followups if f.get("label")],
+        export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
     )
+
 
 def find_footnote(footnotes, df):
     footnotes = footnotes or {}
@@ -107,195 +136,38 @@ def find_footnote(footnotes, df):
             break
     return dim_note
 
-def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes):
-    height = 80
-    template = jinja2.Template(TEMPLATE)
+def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes, max_prompt, insight_prompt, viz_layout):
     facts = []
     for i_df in insights_dfs:
         facts.append(i_df.to_dict(orient='records'))
 
-    insight_template = jinja2.Template(INSIGHT_PROMPT).render(**{"facts": facts})
-    max_response_prompt = jinja2.Template(MAX_PROMPT).render(**{"facts": facts})
+    insight_template = jinja2.Template(insight_prompt).render(**{"facts": facts})
+    max_response_prompt = jinja2.Template(max_prompt).render(**{"facts": facts})
 
     # adding insights
     ar_utils = ArUtils()
     insights = ar_utils.get_llm_response(insight_template)
     viz_list = []
+    export_data = {}
+
+    general_vars = {"headline": title if title else "Total",
+					"sub_headline": subtitle or "Breakout Analysis",
+					"hide_growth_warning": False if warnings else True,
+					"exec_summary": insights if insights else "No Insights.",
+					"warning": warnings}
+
+    viz_layout = json.loads(viz_layout)
+
     for name, table in tables.items():
+        export_data[name] = table
         dim_note = find_footnote(footnotes, table)
-        template_vars = {
-            'dfs': [table],
-            "height": height,
-            "title": title,
-            "subtitle": subtitle,
-            "warnings": warnings,
-            "dim_note": dim_note
-        }
-        rendered = template.render(**template_vars)
+        hide_footer = False if dim_note else True
+        table_vars = get_table_layout_vars(table)
+        table_vars["hide_footer"] = hide_footer
+        rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
-    return viz_list, insights, max_response_prompt
 
-
-MAX_PROMPT = """
-Answer user question in 30 words or less using following facts: {{facts}}
-"""
-
-INSIGHT_PROMPT = """
-Write a short headline followed by a 60 word or less paragraph about using facts below.
-Use the structure from the 2 examples below to learn how I typically write summary.
-Base your summary solely on the provided facts, avoiding assumptions or judgments.
-Ensure clarity and accuracy.
-Use markdown formatting for a structured and clear presentation.
-###
-Please use the following as an example of good insights
-Example 1:
-Facts:
-[{'title': 'Breakout facts', 'facts': [{'dim': 'brand', 'dim_member': 'PRIVATE LABEL', 'sales (Current)': 606079483.0, 'sales (Change %)': '+11.2%'}, {'dim': 'brand', 'dim_member': 'BARILLA', 'sales (Current)': 570349013.0, 'sales (Change %)': '+9.8%'}, {'dim': 'brand', 'dim_member': 'GIOVANNI RANA', 'sales (Current)': 171591549.0, 'sales (Change %)': '+45.6%'}, {'dim': 'brand', 'dim_member': 'BUITONI', 'sales (Current)': 132311071.0, 'sales (Change %)': '-0.5%'}, {'dim': 'brand', 'dim_member': 'RONZONI', 'sales (Current)': 118020517.0, 'sales (Change %)': '+20.9%'}, {'dim': 'brand', 'dim_member': "MUELLER'S", 'sales (Current)': 73042850.0, 'sales (Change %)': '+20.5%'}, {'dim': 'brand', 'dim_member': 'DE CECCO', 'sales (Current)': 62208707.0, 'sales (Change %)': '+27.8%'}, {'dim': 'brand', 'dim_member': 'CREAMETTE', 'sales (Current)': 54239556.0, 'sales (Change %)': '+21.0%'}, {'dim': 'brand', 'dim_member': 'SKINNER', 'sales (Current)': 31644679.0, 'sales (Change %)': '+23.0%'}, {'dim': 'brand', 'dim_member': 'SAN GIORGIO', 'sales (Current)': 30549491.0, 'sales (Change %)': '+14.0%'}, {'dim': 'category', 'dim_member': 'PASTA', 'sales (Current)': 2344870759.0, 'sales (Change %)': '+16.9%'}, {'dim': 'segment', 'dim_member': 'SHORT CUT', 'sales (Current)': 799836059.0, 'sales (Change %)': '+16.0%'}, {'dim': 'segment', 'dim_member': 'LONG CUT', 'sales (Current)': 798770283.0, 'sales (Change %)': '+14.1%'}, {'dim': 'segment', 'dim_member': 'FILLED PASTA', 'sales (Current)': 568546418.0, 'sales (Change %)': '+21.2%'}, {'dim': 'segment', 'dim_member': 'BAKING', 'sales (Current)': 117811950.0, 'sales (Change %)': '+13.2%'}, {'dim': 'segment', 'dim_member': 'SOUP CUT', 'sales (Current)': 39237770.0, 'sales (Change %)': '+20.7%'}, {'dim': 'segment', 'dim_member': 'REMAINING FORM', 'sales (Current)': 20666912.0, 'sales (Change %)': '+82.2%'}]}].
-    summary:
-**Market "Pasta Sales Analysis: Private Label and Filled Pasta Lead Top 10 Brands and Segments"**
-Private Label leads with $606M in sales (+11.2%), while Giovanni Rana sees a substantial 45.6% growth. Filled Pasta emerges as the leading growth segment with a 21.2% increase, and overall pasta sales rise by 16.9%.
-Example 2:
-Facts:
-[{'title': 'Breakout facts', 'facts': [{'dim': 'brand', 'dim_member': 'PRIVATE LABEL', 'sales (Current)': 606079483.0, 'sales (Change %)': '+11.2%', 'volume (Current)': 514359980.0, 'volume (Change %)': '+6.8%', 'units (Current)': 456458939.0, 'units (Change %)': '+9.3%'}, {'dim': 'brand', 'dim_member': 'BARILLA', 'sales (Current)': 570349013.0, 'sales (Change %)': '+9.8%', 'volume (Current)': 353012269.0, 'volume (Change %)': '+5.1%', 'units (Current)': 345124705.0, 'units (Change %)': '+3.4%'}, {'dim': 'brand', 'dim_member': 'GIOVANNI RANA', 'sales (Current)': 171591549.0, 'sales (Change %)': '+45.6%', 'volume (Current)': 27993960.0, 'volume (Change %)': '+39.7%', 'units (Current)': 33071740.0, 'units (Change %)': '+34.4%'}, {'dim': 'brand', 'dim_member': 'BUITONI', 'sales (Current)': 132311071.0, 'sales (Change %)': '-0.5%', 'volume (Current)': 22462430.0, 'volume (Change %)': '-2.3%', 'units (Current)': 25485910.0, 'units (Change %)': '-2.8%'}, {'dim': 'brand', 'dim_member': 'RONZONI', 'sales (Current)': 118020517.0, 'sales (Change %)': '+20.9%', 'volume (Current)': 85090257.0, 'volume (Change %)': '+11.8%', 'units (Current)': 91945822.0, 'units (Change %)': '+11.7%'}, {'dim': 'brand', 'dim_member': "MUELLER'S", 'sales (Current)': 73042850.0, 'sales (Change %)': '+20.5%', 'volume (Current)': 52155766.0, 'volume (Change %)': '+13.3%', 'units (Current)': 52357294.0, 'units (Change %)': '+13.1%'}, {'dim': 'brand', 'dim_member': 'DE CECCO', 'sales (Current)': 62208707.0, 'sales (Change %)': '+27.8%', 'volume (Current)': 25002623.0, 'volume (Change %)': '+19.3%', 'units (Current)': 25338725.0, 'units (Change %)': '+18.9%'}, {'dim': 'brand', 'dim_member': 'CREAMETTE', 'sales (Current)': 54239556.0, 'sales (Change %)': '+21.0%', 'volume (Current)': 43253300.0, 'volume (Change %)': '+17.7%', 'units (Current)': 42945964.0, 'units (Change %)': '+17.4%'}, {'dim': 'brand', 'dim_member': 'SKINNER', 'sales (Current)': 31644679.0, 'sales (Change %)': '+23.0%', 'volume (Current)': 22399717.0, 'volume (Change %)': '+22.3%', 'units (Current)': 24109793.0, 'units (Change %)': '+21.5%'}, {'dim': 'brand', 'dim_member': 'SAN GIORGIO', 'sales (Current)': 30549491.0, 'sales (Change %)': '+14.0%', 'volume (Current)': 24264189.0, 'volume (Change %)': '+7.8%', 'units (Current)': 24971083.0, 'units (Change %)': '+7.8%'}, {'dim': 'category', 'dim_member': 'PASTA', 'sales (Current)': 2344870759.0, 'sales (Change %)': '+16.9%', 'volume (Current)': 1381341421.0, 'volume (Change %)': '+9.0%', 'units (Current)': 1388502031.0, 'units (Change %)': '+9.4%'}, {'dim': 'segment', 'dim_member': 'SHORT CUT', 'sales (Current)': 799836059.0, 'sales (Change %)': '+16.0%', 'volume (Current)': 581461232.0, 'volume (Change %)': '+10.2%', 'units (Current)': 598039068.0, 'units (Change %)': '+9.9%'}, {'dim': 'segment', 'dim_member': 'LONG CUT', 'sales (Current)': 798770283.0, 'sales (Change %)': '+14.1%', 'volume (Current)': 585163253.0, 'volume (Change %)': '+6.0%', 'units (Current)': 576367344.0, 'units (Change %)': '+7.7%'}, {'dim': 'segment', 'dim_member': 'FILLED PASTA', 'sales (Current)': 568546418.0, 'sales (Change %)': '+21.2%', 'volume (Current)': 128028938.0, 'volume (Change %)': '+13.8%', 'units (Current)': 119584833.0, 'units (Change %)': '+14.4%'}, {'dim': 'segment', 'dim_member': 'BAKING', 'sales (Current)': 117811950.0, 'sales (Change %)': '+13.2%', 'volume (Current)': 48733961.0, 'volume (Change %)': '+10.8%', 'units (Current)': 57928261.0, 'units (Change %)': '+10.2%'}, {'dim': 'segment', 'dim_member': 'SOUP CUT', 'sales (Current)': 39237770.0, 'sales (Change %)': '+20.7%', 'volume (Current)': 26220794.0, 'volume (Change %)': '+11.3%', 'units (Current)': 32006671.0, 'units (Change %)': '+9.0%'}, {'dim': 'segment', 'dim_member': 'REMAINING FORM', 'sales (Current)': 20666912.0, 'sales (Change %)': '+82.2%', 'volume (Current)': 11732954.0, 'volume (Change %)': '+50.4%', 'units (Current)': 4575565.0, 'units (Change %)': '+80.4%'}]}].
-Insights:
-**Barilla Performance Analysis: Private Label Tops Sales, Giovanni Rana and Filled Pasta Segment Register Strongest Growth"**
-Private Label leads with $606M in sales (+11.2%), 514M in volume (+6.8%), and 456M units (+9.3%). Giovanni Rana shows exceptional growth at 45.6% in sales, 39.7% in volume, and 34.4% in units. Buitoni, however, faces a decline with a -0.5% drop in sales, -2.3% in volume, and -2.8% in units.
-In segments, Filled Pasta leads in growth with sales up 21.2%, volume increasing by 13.8%, and units by 14.4%. The Remaining Form segment shows a staggering 82.2% jump in sales, although from a smaller base. Overall, pasta sales in the category rose by 16.9%, with a 9.0% increase in volume and a 9.4% boost in units.
-###
-Facts:
-{{facts}}
-Summary:
-"""
-
-TEMPLATE = """
-{
-"type": "GridPanel",
-"rows": 100,
-"columns": 160,
-"rowHeight": "1.11%",
-"colWidth": "0.625%",
-"gap": "0px",
-"style": {
-    "backgroundColor": "white",
-    "border": "1px solid #ccc",
-    "width": "100%",
-    "height": "100%"
-},
- "children": [
-    {% set ns = namespace(counter=0) %}
-    {
-            "name": "mainTitle",
-            "type": "Header",
-            "row": 0,
-            "column": 1,
-            "width": 120,
-            "height": 2,
-            "style": {
-                "textAlign": "left",
-                "verticalAlign": "middle",
-                "fontSize": "18px",
-                "fontWeight": "bold",
-                "color": "#333",
-                "fontFamily": "Arial, sans-serif"
-            },
-            "text": "{{title}}"
-    },
-    {
-            "name": "subtitle",
-            "type": "Header",
-            "row": 4,
-            "column": 1,
-            "width": 120,
-            "height": 2,
-            "style": {
-                "textAlign": "left",
-                "verticalAlign": "middle",
-                "fontSize": "12px",
-                "color": "#888",
-                "fontFamily": "Arial, sans-serif"
-            },
-            "text": "{{subtitle}}"
-    },
-    {% set chart_start = 7 %}
-    {% if warnings %}
-        {% set chart_start = 10 %}
-        {
-                "name": "subtitle",
-                "type": "Header",
-                "row": 7,
-                "column": 1,
-                "width": 158,
-                "height": 2,
-                "style": {
-                    "textAlign": "left",
-                    "verticalAlign": "middle",
-                    "color": "#333",
-                    "fontFamily": "Arial, sans-serif",
-                    "backgroundColor": "#FFF8E1",
-                    "borderRadius": "10px"
-                },
-                "text": "{{warnings}}"
-        },
-    {% endif %}
-    {% for df in dfs %}
-        {
-        "type": "DataTable",
-        "row": {{ns.counter + chart_start}},
-        "column": 1,
-        "width": 158,
-        "height": {{height}},
-        "columns": [
-            {% set total_cols = df.columns | length  %}
-            {% for col in df.columns %}
-                {% if loop.index0 == (df.columns | length) - 1 %}
-                    {"name": "{{ col }}"}
-                {% else %}
-                    {"name": "{{ col }}"},
-                {% endif %}
-            {% endfor %}
-        ],
-        "data": {{ df.fillna('N/A').to_numpy().tolist() | tojson }},
-        "styles": {
-                    "alternateRowColor": "#f9f9f9",
-                    "fontFamily": "Arial, sans-serif",
-                    "th": {
-                        "backgroundColor": "#FOFOFO",
-                        "color": "#000000",
-                        "fontWeight": "bold"
-                    },
-                    "caption": {
-                        "backgroundColor": "#32ea05",
-                        "color": "#000000",
-                        "fontWeight": "bold",
-                        "fontSize": "10pt"
-                    }
-        }
-    }{% if not loop.last %},{% endif %}
-    {% set ns.counter = height*loop.index %}
-    {% endfor %}
-    {% if dim_note %}
-        ,{
-            "name": "footer",
-            "type": "Header",
-            "row": {{ns.counter + chart_start}},
-            "column": 1,
-            "width": 120,
-            "height": 2,
-            "style": {
-                "textAlign": "left",
-                "verticalAlign": "middle",
-                "fontSize": "14px",
-                "color": "#333",
-                "fontFamily": "Arial, sans-serif",
-                "fontStyle": "italic",
-                "fontWeight": "normal"
-            },
-            "text": "*{{dim_note}}"
-        }
-    {% endif %}
-]
-}
-"""
+    return viz_list, insights, max_response_prompt, export_data
 
 if __name__ == '__main__':
     # skill_input: SkillInput = simple_breakout.create_input(arguments={'metrics': ["menu_placements"], 'breakouts': ["cocktail_family"], 'periods': ["Jan 2025"], 'other_filters': [{"dim": "brand_name", "op": "=", "val": ["Papa's Pilar"]}]})
