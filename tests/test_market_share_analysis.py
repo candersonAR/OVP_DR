@@ -9,15 +9,16 @@ class TestMarketShareAnalysis:
     # TODO: Can this test be made generic and put into ar-analytics?
 
     # met1 = "sold_9le"
-    met1 = "menu_placements_share"
+    metric_menu_placement_share = "menu_placements_share"
     # met2 = "menu_placements"
     # sales_met = "sales_share" # todo: need this for overproof?
     breakout1 = "brand_name"
     breakout2 = "state_name"
-    period_filter1 = "2024"
+    period_filter_2024 = "2024"
     growth_type = "Y/Y"
-    filter1 = {"dim": "brand_name", "op": "=", "val": "Papa's Pilar"}
-    filter2 = {"dim": "state_name", "op": "=", "val": "Florida"}
+    papa_pillars_filter = {"dim": "brand_name", "op": "=", "val": "Papa's Pilar"}
+    margarita_filter = {"val":["margarita"],"dim":"cocktail__name","op":"="}
+    vodka_filter = {"dim": "product_category_name", "op": "=", "val": "vodka"}
 
     preview = False # Set to True to get previews
 
@@ -36,13 +37,35 @@ class TestMarketShareAnalysis:
 
         assert True
     
-    def test_single_metric_with_period(self):
+    def test_menu_placement_share_in_2024_for_papa_pillars(self):
         """Test with a single metric, no growth type"""
 
         parameters = {
-            "metric": self.met1,
-            "periods": [self.period_filter1],
-            "other_filters": [self.filter1]
+            "metric": self.metric_menu_placement_share,
+            "periods": [self.period_filter_2024],
+            "other_filters": [self.papa_pillars_filter]
+        }
+
+        self._assert_msa_runs_without_errors(parameters)
+
+    def test_menu_placement_share_in_2024_for_margarita(self):
+        """Test with a single metric, no growth type"""
+
+        parameters = {
+            "metric": self.metric_menu_placement_share,
+            "periods": [self.period_filter_2024],
+            "other_filters": [self.margarita_filter]
+        }
+
+        self._assert_msa_runs_without_errors(parameters)
+
+    def test_menu_placement_share_in_2024_for_vodka(self):
+        """Test with a single metric, no growth type"""
+
+        parameters = {
+            "metric": self.metric_menu_placement_share,
+            "periods": [self.period_filter_2024],
+            "other_filters": [self.vodka_filter]
         }
 
         self._assert_msa_runs_without_errors(parameters)
