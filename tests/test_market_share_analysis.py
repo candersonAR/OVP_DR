@@ -41,7 +41,8 @@ class TestMarketShareAnalysis:
 
         parameters = {
             "metric": self.met1,
-            "periods": [self.period_filter1]
+            "periods": [self.period_filter1],
+            "other_filters": [self.filter1]
         }
 
         self._assert_msa_runs_without_errors(parameters)
