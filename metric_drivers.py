@@ -136,6 +136,8 @@ def simple_metric_driver(parameters: SkillInput):
 def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, insight_prompt, viz_layout):
     facts = []
     for i_df in insights_dfs:
+        if "sparkline" in i_df.columns:
+            i_df.drop(columns="sparkline", inplace=True)
         facts.append(i_df.to_dict(orient='records'))
 
     insight_template = jinja2.Template(insight_prompt).render(**{"facts": facts})
@@ -169,10 +171,10 @@ if __name__ == '__main__':
   "periods": [
     "2024"
   ],
+  "metric": "menu_placements",
   "breakouts": [
     "cocktail__name"
   ],
-  "metric": "menu_placements",
   "other_filters": [
     {
       "val": [
