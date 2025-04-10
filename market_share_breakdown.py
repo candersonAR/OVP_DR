@@ -13,7 +13,7 @@ from ar_analytics.helpers.utils import SkillPlatform, TemplateParameterSetup, Co
 
 
 class MarketShareBreakdown:
-    def __init__(self, sql_exec=None, dim_hierarchy={}, constrained_values={}, compare_date_warning_msg=''):
+    def __init__(self, sql_exec=None, dim_hierarchy={}, constrained_values={}, compare_date_warning_msg='', df_provider=None):
         # database connection
         if sql_exec:
             self.con = sql_exec
@@ -26,6 +26,7 @@ class MarketShareBreakdown:
         # these get set in run_from_env()
         self.sp = None
         self.use_max_sql_gen = True
+        self.pull_data_func = df_provider.pull_data if df_provider and hasattr(df_provider, "pull_data") else pull_data
 
         self.dim_hierarchy = DimensionHierarchy(dim_hierarchy)
         self.helper = SharedFn()
@@ -38,7 +39,7 @@ class MarketShareBreakdown:
         self.compare_date_warning_msg = compare_date_warning_msg
 
     @classmethod
-    def from_env(cls, env):
+    def from_env(cls, env, df_provider=None):
 
         if env is None:
             raise exit_with_status("env is required")
@@ -49,7 +50,8 @@ class MarketShareBreakdown:
             sql_exec=env.msb_parameters["con"],
             dim_hierarchy=env.msb_parameters["dim_hierarchy"],
             constrained_values=env.msb_parameters["constrained_values"],
-            compare_date_warning_msg=env.msb_parameters["compare_date_warning_msg"]
+            compare_date_warning_msg=env.msb_parameters["compare_date_warning_msg"],
+            df_provider=df_provider
         )
 
     def get_share_and_component_metric(self, input_metric, metric_props):
@@ -109,8 +111,12 @@ class MarketShareBreakdown:
         if self.compare_date_warning_msg:
             warning_messages.append(self.compare_date_warning_msg)
 
-        return ' '.join(warning_messages) if warning_messages else None
+        warning_message = ' '.join(warning_messages)
+        if warning_message:
+            warning_message = f"⚠ {warning_message}"
 
+        return warning_message
+    
     # replace special chars
     def replace_special_chars(self, value):
         if not value:
@@ -812,25 +818,25 @@ class MarketShareBreakdown:
     def get_drivers_df(self, table, breakout, driver_metrics, query_filters, dim_member_filters, share_type='share',
                        parent_breakout=None):
 
-        driver_cols = [m['col'] for m in driver_metrics]
+        driver_cols = [m['name'] for m in driver_metrics]
         market_rename_dict = {breakout: 'dim_member'}
         drivers_rename_dict = {breakout: 'dim_member'}
         for metric in driver_metrics:
-            market_rename_dict[metric['col']] = metric['name'] + '_market_size'
-            drivers_rename_dict[metric['col']] = metric['name']
+            market_rename_dict[metric['name']] = metric['name'] + '_market_size'
+            drivers_rename_dict[metric['name']] = metric['name']
 
         market_filters = [f for f in query_filters if f['col'] != self.subject_dim]
 
         # if breakout is subject_dim, then get market sizes for each metric without breakout
         if breakout == self.subject_dim:
             # set class variable for subject market size data for contribution
-            self.df_market_curr = pull_data(metrics=driver_metrics, filters=market_filters + [self.curr_period])
+            self.df_market_curr = self.pull_data_func(metrics=driver_metrics, filters=market_filters + [self.curr_period])
             self.check_row_limit(self.df_market_curr)
 
             self.df_market_curr[driver_cols] = self.df_market_curr[driver_cols].astype(float)
             self.df_market_curr.rename(columns=market_rename_dict, inplace=True)
 
-            self.df_market_comp = pull_data(metrics=driver_metrics, filters=market_filters + [self.comp_period])
+            self.df_market_comp = self.pull_data_func(metrics=driver_metrics, filters=market_filters + [self.comp_period])
             self.check_row_limit(self.df_market_comp)
 
             self.df_market_comp[driver_cols] = self.df_market_comp[driver_cols].astype(float)
@@ -838,7 +844,7 @@ class MarketShareBreakdown:
 
         else:
             # get current market size data
-            df_market_curr = pull_data(metrics=driver_metrics, breakouts=[breakout],
+            df_market_curr = self.pull_data_func(metrics=driver_metrics, breakouts=[breakout],
                                        filters=market_filters + [self.curr_period])
             self.check_row_limit(df_market_curr)
 
@@ -846,7 +852,7 @@ class MarketShareBreakdown:
             df_market_curr.rename(columns=market_rename_dict, inplace=True)
 
             # get comp market size data
-            df_market_comp = pull_data(metrics=driver_metrics, breakouts=[breakout],
+            df_market_comp = self.pull_data_func(metrics=driver_metrics, breakouts=[breakout],
                                        filters=market_filters + [self.comp_period])
             self.check_row_limit(df_market_comp)
 
@@ -858,7 +864,7 @@ class MarketShareBreakdown:
             query_breakouts.append(parent_breakout)
 
         # get current driver data
-        df_drivers_curr = pull_data(metrics=driver_metrics,
+        df_drivers_curr = self.pull_data_func(metrics=driver_metrics,
                                     filters=query_filters + dim_member_filters + [self.curr_period],
                                     breakouts=query_breakouts)
         self.check_row_limit(df_drivers_curr)
@@ -878,7 +884,7 @@ class MarketShareBreakdown:
                 df_drivers_curr[metric['name'] + '_market_size'], fill_value=0)
 
         # get comp driver data
-        df_drivers_comp = pull_data(metrics=driver_metrics,
+        df_drivers_comp = self.pull_data_func(metrics=driver_metrics,
                                     filters=query_filters + dim_member_filters + [self.comp_period],
                                     breakouts=query_breakouts)
         self.check_row_limit(df_drivers_comp)
@@ -1152,49 +1158,51 @@ class MarketShareBreakdown:
                     # because the click_html might have valid html, e.g. click on image run trend
                     df[col] = df[col].apply(lambda x: self.remove_html_brackets(x))
 
-                cols_to_keep = ['parent_dim_member', 'dim_member', 'share_curr', 'share_comp', 'share_change',
-                                'share_change_mat']
-                col_rename_dict = {}
-                col_rename_dict['dim_member'] = f"Share by {tab_name}"
+            cols_to_keep = ['parent_dim_member', 'dim_member', 'share_curr', 'share_comp', 'share_change',
+                            'share_change_mat']
+            if 'is_collapsible' in df.columns:
+                cols_to_keep.append('is_collapsible')
+            col_rename_dict = {}
+            col_rename_dict['dim_member'] = f"Share by {tab_name}"
 
-                if self.date_labels.get('start_date') == self.date_labels.get('end_date'):
-                    col_rename_dict['share_curr'] = str(self.date_labels.get('start_date'))
+            if self.date_labels.get('start_date') == self.date_labels.get('end_date'):
+                col_rename_dict['share_curr'] = str(self.date_labels.get('start_date'))
+            else:
+                col_rename_dict[
+                    'share_curr'] = f"{str(self.date_labels.get('start_date'))} to {str(self.date_labels.get('end_date'))}"
+
+            if self.date_labels.get('compare_start_date') == self.date_labels.get('compare_end_date'):
+                col_rename_dict['share_comp'] = str(self.date_labels.get('compare_start_date'))
+            else:
+                col_rename_dict[
+                    'share_comp'] = f"{str(self.date_labels.get('compare_start_date'))} to {str(self.date_labels.get('compare_end_date'))}"
+
+            col_rename_dict["share_change"] = f"Share Change {self.env.growth_type}"
+            col_rename_dict["share_change_mat"] = f"L12M Chg Y/Y"
+
+            df['dim_member'] = df['dim_member'].apply(lambda x: self.replace_special_chars(x))
+            if 'parent_dim_member' in df.columns:
+                if df['parent_dim_member'].isnull().all():
+                    cols_to_keep.remove('parent_dim_member')
                 else:
-                    col_rename_dict[
-                        'share_curr'] = f"{str(self.date_labels.get('start_date'))} to {str(self.date_labels.get('end_date'))}"
+                    df['parent_dim_member'] = df['parent_dim_member'].apply(lambda x: self.replace_special_chars(x))
+            if 'level' in df.columns:
+                df['dim_member'] = df.apply(
+                    lambda row: f"{' ' * 3 * int(row['level'])}-{row['dim_member']}" if row['level'] > 0 else row[
+                        'dim_member'], axis=1)
+                df["dim_member"] = df["dim_member"].apply(lambda x: x.replace("_", " "))
 
-                if self.date_labels.get('compare_start_date') == self.date_labels.get('compare_end_date'):
-                    col_rename_dict['share_comp'] = str(self.date_labels.get('compare_start_date'))
+            if self.include_drivers:
+                if 'subject_df' in df.columns:
+                    for section in self.subject_metric_drivers:
+                        for driver in self.subject_metric_drivers[section]:
+                            cols_to_keep.append(driver)
+                            col_rename_dict[driver] = self.metric_drivers_labels[driver]
                 else:
-                    col_rename_dict[
-                        'share_comp'] = f"{str(self.date_labels.get('compare_start_date'))} to {str(self.date_labels.get('compare_end_date'))}"
-
-                col_rename_dict["share_change"] = f"Share Change {self.env.growth_type}"
-                col_rename_dict["share_change_mat"] = f"L12M Chg Y/Y"
-
-                df['dim_member'] = df['dim_member'].apply(lambda x: self.replace_special_chars(x))
-                if 'parent_dim_member' in df.columns:
-                    if df['parent_dim_member'].isnull().all():
-                        cols_to_keep.remove('parent_dim_member')
-                    else:
-                        df['parent_dim_member'] = df['parent_dim_member'].apply(lambda x: self.replace_special_chars(x))
-                if 'level' in df.columns:
-                    df['dim_member'] = df.apply(
-                        lambda row: f"{' ' * 3 * int(row['level'])}-{row['dim_member']}" if row['level'] > 0 else row[
-                            'dim_member'], axis=1)
-                    df["dim_member"] = df["dim_member"].apply(lambda x: x.replace("_", " "))
-
-                if self.include_drivers:
-                    if 'subject_df' in df.columns:
-                        for section in self.subject_metric_drivers:
-                            for driver in self.subject_metric_drivers[section]:
-                                cols_to_keep.append(driver)
-                                col_rename_dict[driver] = self.metric_drivers_labels[driver]
-                    else:
-                        for section in self.decomposition_metric_drivers:
-                            for driver in self.decomposition_metric_drivers[section]:
-                                cols_to_keep.append(driver)
-                                col_rename_dict[driver] = self.metric_drivers_labels[driver]
+                    for section in self.decomposition_metric_drivers:
+                        for driver in self.decomposition_metric_drivers[section]:
+                            cols_to_keep.append(driver)
+                            col_rename_dict[driver] = self.metric_drivers_labels[driver]
 
             df = df[[col for col in cols_to_keep if col in df.columns]]
             df = df.rename(columns=col_rename_dict)
@@ -1475,7 +1483,7 @@ class MarketShareBreakdown:
 
         # get subject df
         self.dimensions_analyzed.append(self.subject_dim)
-        subject_df = pull_data(metrics=[self.metric], filters=market_filters + [self.trend_period],
+        subject_df = self.pull_data_func(metrics=[self.metric], filters=market_filters + [self.trend_period],
                                breakouts=[self.subject_dim, self.period_col],
                                order_cols=[{"col": self.period_col, "direction": "ASC"}])
         self.check_row_limit(subject_df)
@@ -1484,7 +1492,7 @@ class MarketShareBreakdown:
             exit_with_status(
                 f"No data found for {self.subject_dim_label} {self.subject_member}{dim_filter_str}. Ask user to try a different set of filters.")
 
-        subject_df.rename(columns={self.metric['col']: 'metric'}, inplace=True)
+        subject_df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
         subject_df['metric'] = subject_df['metric'].astype(float)
         subject_df = self.transform_subject_df(subject_df, self.subject_dim, top_n)
         subject_df['level'] = 0
@@ -1526,12 +1534,12 @@ class MarketShareBreakdown:
             share_type = breakout.get("type")  # share or contribution
 
             if share_type == 'share':
-                breakout_df = pull_data(metrics=[self.metric], filters=market_filters + [self.trend_period],
+                breakout_df = self.pull_data_func(metrics=[self.metric], filters=market_filters + [self.trend_period],
                                         breakouts=[breakout_dim, self.subject_dim, self.period_col],
                                         order_cols=[{"col": self.period_col, "direction": 'ASC'}])
                 self.check_row_limit(breakout_df)
 
-                breakout_df.rename(columns={self.metric['col']: 'metric'}, inplace=True)
+                breakout_df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
                 breakout_df['metric'] = breakout_df['metric'].astype(float)
 
                 df = self.transform_breakout_df(breakout_df, breakout_dim, top_n=top_n)
@@ -1562,12 +1570,12 @@ class MarketShareBreakdown:
                 drilldown = breakout.get("drilldown")
 
                 # pull data using query_filters
-                df = pull_data(metrics=[self.metric], filters=query_filters + [self.trend_period],
+                df = self.pull_data_func(metrics=[self.metric], filters=query_filters + [self.trend_period],
                                breakouts=[breakout_dim, self.period_col],
                                order_cols=[{"col": self.period_col, "direction": 'ASC'}])
                 self.check_row_limit(df)
 
-                df.rename(columns={self.metric['col']: 'metric'}, inplace=True)
+                df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
                 df['metric'] = df['metric'].astype(float)
 
                 # transform contribution df
@@ -1601,13 +1609,13 @@ class MarketShareBreakdown:
 
                     # pull data for drilldown dim using query_filters + top dim_members of parent
                     self.dimensions_analyzed.append(drilldown_dim)
-                    drilldown_df = pull_data(metrics=[self.metric],
+                    drilldown_df = self.pull_data_func(metrics=[self.metric],
                                              filters=query_filters + dim_member_filters + [self.trend_period],
                                              breakouts=[breakout_dim, drilldown_dim, self.period_col],
                                              order_cols=[{"col": self.period_col, "direction": "ASC"}])
                     self.check_row_limit(drilldown_df)
 
-                    drilldown_df.rename(columns={self.metric['col']: 'metric'}, inplace=True)
+                    drilldown_df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
                     drilldown_df['metric'] = drilldown_df['metric'].astype(float)
 
                     # get driver metrics for drilldown
