@@ -17,6 +17,7 @@ from ar_analytics.defaults import market_share_analysis_config, default_table_la
 
 import jinja2
 import logging
+import pandas as pd
 
 from overproof_data_provider import DataProvider
 
@@ -298,6 +299,58 @@ def transform_df_into_datatable_data(df):
     else:
         return df.fillna('N/A').to_numpy().tolist()
 
+def get_data(df):
+    data = []
+    has_subject = 'is_subject' in df.columns
+
+    for _, row in df.iterrows():
+        new_row = []
+        is_subject = has_subject and bool(row['is_subject'])
+
+        for col, val in row.items():
+            # Skip the is_subject column from output
+            if col == 'is_subject':
+                continue
+
+            if pd.isna(val):
+                val = 'N/A'
+
+            if is_subject:
+                val = {'style': {'background-color': '#FFF0BE'}, 'value': val}
+
+            new_row.append(val)
+
+        data.append(new_row)
+    return data
+
+def get_table_layout_vars_msa(df):
+    """
+    Generates table layout variables from a DataFrame.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+
+    Returns:
+        dict: A dictionary containing the table layout variables.
+            - "data" (list): A list of lists representing the table data.
+            - "col_defs" (list): A list of dictionaries representing the column definitions.
+    """
+    table_vars = {}
+    data = get_data(df)
+    col_defs = []
+    columns = list(df.columns)
+    for ix, col in enumerate(columns):
+        if col in ["is_subject", "is_collapsible"]:
+            continue
+        if ix == 0:
+            col_defs.append({"name": col, "style": {"textAlign": "left", "white-space": "pre"}})
+        else:
+            col_defs.append({"name": col})
+
+    table_vars["data"] = data
+    table_vars["col_defs"] = col_defs
+    return table_vars
+
 def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, insight_prompt, viz_layout):
     facts = []
     for i_df in insights_dfs:
@@ -326,7 +379,8 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, i
         export_data[name] = table
         # dim_note = find_footnote(footnotes, table)
         # hide_footer = False if dim_note else True
-        table_vars = get_table_layout_vars(table)
+
+        table_vars = get_table_layout_vars_msa(table)
         # table_vars["hide_footer"] = hide_footer
         rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
@@ -335,12 +389,12 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, i
 
 if __name__ == '__main__':
     skill_input: SkillInput = market_share_analysis.create_input(
-        arguments={'metric': "sales", 'periods': ["2022"], 'other_filters': [{"val": ["barilla"],"dim": "brand","op": "="},  {
-      "val": [
-        "semolina"
-      ],
-      "dim": "sub_category",
-      "op": "="
-    }]})
+        arguments=
+    {
+        "metric": "menu_placements_share",
+        "periods": ["2024"],
+        "other_filters": [{"dim": "product_category_name", "op": "=", "val": "vodka"}]
+    }
+)
     out = market_share_analysis(skill_input)
     preview_skill(market_share_analysis, out)
