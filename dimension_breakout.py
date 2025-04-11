@@ -108,14 +108,14 @@ def simple_breakout(parameters: SkillInput):
     followups = env.ba.get_suggestions()
 
     viz, insights, final_prompt, export_data = render_layout(tables,
-                                                            env.ba.title,
-                                                            env.ba.subtitle,
-                                                            insights_dfs,
-                                                            env.ba.warning_message,
-                                                            env.ba.footnotes,
-                                                            parameters.arguments.max_prompt,
-                                                            parameters.arguments.insight_prompt,
-                                                            parameters.arguments.table_viz_layout)
+                                                             env.ba.title,
+                                                             env.ba.subtitle,
+                                                             insights_dfs,
+                                                             env.ba.warning_message,
+                                                             env.ba.footnotes,
+                                                             parameters.arguments.max_prompt,
+                                                             parameters.arguments.insight_prompt,
+                                                             parameters.arguments.table_viz_layout)
 
     return SkillOutput(
         final_prompt=final_prompt,
@@ -151,10 +151,10 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes, ma
     export_data = {}
 
     general_vars = {"headline": title if title else "Total",
-					"sub_headline": subtitle or "Breakout Analysis",
-					"hide_growth_warning": False if warnings else True,
-					"exec_summary": insights if insights else "No Insights.",
-					"warning": warnings}
+                    "sub_headline": subtitle or "Breakout Analysis",
+                    "hide_growth_warning": False if warnings else True,
+                    "exec_summary": insights if insights else "No Insights.",
+                    "warning": warnings}
 
     viz_layout = json.loads(viz_layout)
 
@@ -164,6 +164,7 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes, ma
         hide_footer = False if dim_note else True
         table_vars = get_table_layout_vars(table)
         table_vars["hide_footer"] = hide_footer
+        table_vars["footer"] = f"*{dim_note.strip()}" if dim_note else "No additional info."
         rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
 
