@@ -1445,7 +1445,7 @@ class MarketShareBreakdown:
         self.share_impact_metrics = [m for m in self.impact_metrics if m.get('metric_type') == 'share']
         self.impact_metrics = [m for m in self.impact_metrics if m.get('metric_type') != 'share']
 
-        share_metric_label = self.share_metric.get('label', self.share_metric['name'])
+        self.share_metric_label = self.share_metric.get('label', self.share_metric['name'])
 
         self.subject_dim, self.subject_member, query_filters = self.process_subject_filter(query_filters)
 
@@ -1459,7 +1459,7 @@ class MarketShareBreakdown:
             'share_change_mat',
         ]
 
-        self.facts_rename_dict = self.get_rename_dict(query_metrics, share_metric_label)
+        self.facts_rename_dict = self.get_rename_dict(query_metrics, self.share_metric_label)
 
         print("period_filters", period_filters)
         self.process_period_filters(period_filters)
@@ -1506,7 +1506,7 @@ class MarketShareBreakdown:
                                                  x: f"Run the same analysis on {self.subject_dim_label} {x['dim_member']}{dim_filter_str} for same time period." if not
         x['is_subject'] else "", axis=1)
         subject_df['trend_msg'] = subject_df.apply(
-            lambda x: f"Run {share_metric_label} trend for {self.subject_dim_label} {x['dim_member']}{dim_filter_str}",
+            lambda x: f"Run {self.share_metric_label} trend for {self.subject_dim_label} {x['dim_member']}{dim_filter_str}",
             axis=1)
         subject_df['is_collapsible'] = False
 
@@ -1564,7 +1564,7 @@ class MarketShareBreakdown:
                                          x: f"Run the same analysis on {x['dim']} {x['dim_member']} for {self.subject_dim_label} {self.subject_member}{dim_filter_str} for same time period.",
                                      axis=1)
                 df['trend_msg'] = df.apply(lambda
-                                               x: f"Run {share_metric_label} trend for {x['dim']} {x['dim_member']} for {self.subject_dim_label} {self.subject_member}{dim_filter_str}",
+                                               x: f"Run {self.share_metric_label} trend for {x['dim']} {x['dim_member']} for {self.subject_dim_label} {self.subject_member}{dim_filter_str}",
                                            axis=1)
 
                 # make row non collapsable
@@ -1601,7 +1601,7 @@ class MarketShareBreakdown:
                                          x: f"Run the same analysis for {breakout_dim_label} {x['dim_member']}{dim_filter_str} for same time period.",
                                      axis=1)
                 df['trend_msg'] = df.apply(lambda
-                                               x: f"Run {share_metric_label} trend for {breakout_dim_label} {x['dim_member']}{dim_filter_str}",
+                                               x: f"Run {self.share_metric_label} trend for {breakout_dim_label} {x['dim_member']}{dim_filter_str}",
                                            axis=1)
 
                 if drilldown:
@@ -1655,7 +1655,7 @@ class MarketShareBreakdown:
                                                                                              x: f"Run the same analysis for {self.subject_dim_label} {self.subject_member}, {drilldown_dim_label} {x['dim_member']} in {breakout_dim_label} {dim_member}{dim_filter_str} for same time period.",
                                                                                          axis=1)
                         drilldown_transformed_df['trend_msg'] = drilldown_transformed_df.apply(lambda
-                                                                                                   x: f"Run {share_metric_label} trend for {drilldown_dim_label} {x['dim_member']} in {breakout_dim_label} {dim_member}{dim_filter_str} for same time period.",
+                                                                                                   x: f"Run {self.share_metric_label} trend for {drilldown_dim_label} {x['dim_member']} in {breakout_dim_label} {dim_member}{dim_filter_str} for same time period.",
                                                                                                axis=1)
 
                         # make row non collapsable
@@ -1769,7 +1769,7 @@ class MarketShareBreakdown:
             date_str = date_labels['start_date']
         else:
             date_str = f"{date_labels['start_date']} to {date_labels['end_date']}"
-        subtitle = f"{share_metric_label} Analysis • {date_str} {growth_type}"
+        subtitle = f"{self.share_metric_label} Analysis • {date_str} {growth_type}"
         self.warning_message = self.get_warning_messages()
         self.title = title
         self.subtitle = subtitle
