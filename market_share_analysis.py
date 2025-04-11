@@ -272,6 +272,10 @@ def market_share_analysis(parameters: SkillInput):
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.msa.paramater_display_infomation.items()]
 
     share_metric_label = env.msa.share_metric_label
+    include_drivers = env.msa.include_drivers
+    metric_drivers_labels = env.msa.metric_drivers_labels
+    subject_metric_drivers = env.msa.subject_metric_drivers
+    decomposition_metric_drivers = env.msa.decomposition_metric_drivers
 
     insights_dfs = [env.msa.subject_facts, env.msa.bottom_peers_facts, env.msa.top_peers_facts, env.msa.bottom_breakouts_facts, env.msa.top_breakouts_facts, env.msa.metric_driver_challenges_facts, env.msa.df_notes]
     followups = env.msa.suggestions
@@ -284,7 +288,11 @@ def market_share_analysis(parameters: SkillInput):
                                                             parameters.arguments.max_prompt,
                                                             parameters.arguments.insight_prompt, 
                                                             parameters.arguments.table_viz_layout,
-                                                            share_metric_label)
+                                                            share_metric_label, 
+                                                            include_drivers,
+                                                            metric_drivers_labels,
+                                                            subject_metric_drivers,
+                                                            decomposition_metric_drivers)
 
     return SkillOutput(
         final_prompt=final_prompt,
@@ -369,7 +377,15 @@ def get_data(tab_name: str, df: pd.DataFrame):
 
     return data
 
-def get_table_layout_vars_msa(tab_name: str, df: pd.DataFrame, share_metric_label: str):
+def get_table_layout_vars_msa(
+        tab_name: str, 
+        df: pd.DataFrame, 
+        share_metric_label: str,
+        include_drivers: bool,
+        metric_drivers_labels: Dict[str, str],
+        subject_metric_drivers: Dict[str, List[str]],
+        decomposition_metric_drivers: Dict[str, List[str]]
+    ):
     """
     Generates table layout variables from a DataFrame.
 
@@ -387,12 +403,21 @@ def get_table_layout_vars_msa(tab_name: str, df: pd.DataFrame, share_metric_labe
     col_defs = []
     columns = list(df.columns)
 
+    # create a reverse mapping of all list values to the key
+    subject_metric_driver_metrics_reverse = {metric_drivers_labels[item]: k for k, v in subject_metric_drivers.items() for item in v}
+    decomposition_metric_driver_metrics_reverse = {metric_drivers_labels[item]: k for k, v in decomposition_metric_drivers.items() for item in v}
+
     # share_col_def = {"name": share_metric_label, "group": []}
     for col in columns:
         if col in ['parent_dim_member', 'is_subject', 'is_collapsible', 'msg']:
             continue
 
         group = share_metric_label
+        if col in subject_metric_driver_metrics_reverse:
+            group = subject_metric_driver_metrics_reverse[col]
+        elif col in decomposition_metric_driver_metrics_reverse:
+            group = decomposition_metric_driver_metrics_reverse[col]
+
         if col == dim_member_col:
             col_defs.append({"name": col, "style": {"textAlign": "left", "white-space": "pre"}, "group": group})
         else:
@@ -413,7 +438,11 @@ def render_layout(
         max_prompt: str,
         insight_prompt: str, 
         viz_layout: str,
-        share_metric_label: str
+        share_metric_label: str,
+        include_drivers: bool,
+        metric_drivers_labels: Dict[str, str],
+        subject_metric_drivers: Dict[str, List[str]],
+        decomposition_metric_drivers: Dict[str, List[str]]
     ):
     facts = []
     for i_df in insights_dfs:
@@ -444,7 +473,15 @@ def render_layout(
         # dim_note = find_footnote(footnotes, table)
         # hide_footer = False if dim_note else True
 
-        table_vars = get_table_layout_vars_msa(name, table, share_metric_label)
+        table_vars = get_table_layout_vars_msa(
+            name, 
+            table, 
+            share_metric_label,
+            include_drivers,
+            metric_drivers_labels,
+            subject_metric_drivers,
+            decomposition_metric_drivers
+        )
         # table_vars["hide_footer"] = hide_footer
         rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
