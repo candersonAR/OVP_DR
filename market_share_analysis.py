@@ -301,7 +301,11 @@ def transform_df_into_datatable_data(df):
 
 def get_data(tab_name: str, df: pd.DataFrame):
 
-    def get_row_data(row: pd.Series, has_subject: bool) -> List[Dict | str]:
+    dim_member_col = f"Share by {tab_name}"
+    has_subject = 'is_subject' in df.columns
+    is_grouping = 'is_collapsible' in df.columns and df['is_collapsible'].any()
+
+    def get_row_data(row: pd.Series, is_child: bool = False) -> List[Dict | str]:
 
         new_row = []
         is_subject = has_subject and bool(row['is_subject'])
@@ -314,6 +318,12 @@ def get_data(tab_name: str, df: pd.DataFrame):
 
             if pd.isna(val):
                 val = 'N/A'
+
+            if is_grouping and col == dim_member_col:
+                val = val.strip().replace("-", "")
+                if is_child: # hack to add better looking indentation 
+                    four_space_indent = "    "
+                    val = f"{four_space_indent}{four_space_indent}{val}"
 
             if is_subject:
                 val = {'style': {'background-color': '#FFF0BE'}, 'value': val}
@@ -328,16 +338,9 @@ def get_data(tab_name: str, df: pd.DataFrame):
         else:
             return new_row
 
-    # for _, row in df.iterrows():
-
-    #     data.append(get_row_data(row))
-
-    dim_member_col = f"Share by {tab_name}"
-
     data = []
-    has_subject = 'is_subject' in df.columns
 
-    # reset index
+    # reset index, ordering already determined by skill
     df = df.reset_index(drop=True)
     index = 0
 
@@ -348,13 +351,13 @@ def get_data(tab_name: str, df: pd.DataFrame):
         if ('is_collapsible' in row and row['is_collapsible'] 
             and 'parent_dim_member' in row and row['parent_dim_member'] is None):
 
-            parent_row_data = get_row_data(row, has_subject)
+            parent_row_data = get_row_data(row)
             children = []
 
             child_row = df.iloc[index + 1] if index + 1 < len(df) else None
 
             while child_row is not None and child_row['parent_dim_member'] is not None:
-                children.append(get_row_data(child_row, has_subject))
+                children.append(get_row_data(child_row, is_child=True))
                 index += 1
                 child_row = df.iloc[index + 1] if index + 1 < len(df) else None
 
@@ -363,7 +366,7 @@ def get_data(tab_name: str, df: pd.DataFrame):
             data.append(parent_row_data)
 
         else:
-            data.append(get_row_data(row, has_subject))
+            data.append(get_row_data(row))
 
         index += 1
 
@@ -382,13 +385,14 @@ def get_table_layout_vars_msa(tab_name: str, df: pd.DataFrame):
             - "col_defs" (list): A list of dictionaries representing the column definitions.
     """
     table_vars = {}
+    dim_member_col = f"Share by {tab_name}"
     data = get_data(tab_name, df)
     col_defs = []
     columns = list(df.columns)
-    for ix, col in enumerate(columns):
+    for col in columns:
         if col in ['parent_dim_member', 'is_subject', 'is_collapsible', 'msg']:
             continue
-        if ix == 0:
+        if col == dim_member_col:
             col_defs.append({"name": col, "style": {"textAlign": "left", "white-space": "pre"}})
         else:
             col_defs.append({"name": col})
