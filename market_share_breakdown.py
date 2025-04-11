@@ -702,32 +702,36 @@ class MarketShareBreakdown:
             lambda x: self.dim_props.get(x, {}).get('label', x))
 
         # top and bottom breakouts by share impact
-        top_breakouts = all_breakouts[all_breakouts[f'{self.share_metric["name"]}_impact'] > 0].nlargest(3,
-                                                                                                         f'{self.share_metric["name"]}_impact')
-        top_breakouts = self.format_df(top_breakouts)
-        bottom_breakouts = all_breakouts[all_breakouts[f'{self.share_metric["name"]}_impact'] < 0].nsmallest(3,
-                                                                                                             f'{self.share_metric["name"]}_impact')
-        bottom_breakouts = self.format_df(bottom_breakouts)
+        share_impact_col = f'{self.share_metric["name"]}_impact'
+        if share_impact_col in all_breakouts.columns:
+            top_breakouts = all_breakouts[all_breakouts[share_impact_col] > 0].nlargest(3, share_impact_col)
+            top_breakouts = self.format_df(top_breakouts)
+            bottom_breakouts = all_breakouts[all_breakouts[share_impact_col] < 0].nsmallest(3, share_impact_col)
+            bottom_breakouts = self.format_df(bottom_breakouts)
+        
 
-        # bottom 3 dim_members by share_change
-        bottom_growth_breakouts = all_breakouts.nsmallest(3, 'share_change')
-        bottom_growth_breakouts = self.format_df(bottom_growth_breakouts)
+            # bottom 3 dim_members by share_change
+            bottom_growth_breakouts = all_breakouts.nsmallest(3, 'share_change')
+            bottom_growth_breakouts = self.format_df(bottom_growth_breakouts)
 
-        fact_cols = self.core_fact_cols.copy()
-        fact_cols.extend(['share_type', 'parent_dim', 'parent_dim_member'])
-        impact_cols = [f'{m["name"]}_impact' for m in self.impact_metrics]
-        impact_share_cols = [f'{m["name"]}_impact' for m in self.share_impact_metrics]
-        fact_cols.extend(impact_cols + impact_share_cols)
+            fact_cols = self.core_fact_cols.copy()
+            fact_cols.extend(['share_type', 'parent_dim', 'parent_dim_member'])
+            impact_cols = [f'{m["name"]}_impact' for m in self.impact_metrics]
+            impact_share_cols = [f'{m["name"]}_impact' for m in self.share_impact_metrics]
+            fact_cols.extend(impact_cols + impact_share_cols)
 
-        top_breakouts = top_breakouts[fact_cols].copy()
-        bottom_breakouts = bottom_breakouts[fact_cols].copy()
-        bottom_growth_breakouts = bottom_growth_breakouts[fact_cols].copy()
+            top_breakouts = top_breakouts[fact_cols].copy()
+            bottom_breakouts = bottom_breakouts[fact_cols].copy()
+            bottom_growth_breakouts = bottom_growth_breakouts[fact_cols].copy()
 
-        top_breakouts.rename(columns=self.facts_rename_dict, inplace=True)
-        bottom_breakouts.rename(columns=self.facts_rename_dict, inplace=True)
-        bottom_growth_breakouts.rename(columns=self.facts_rename_dict, inplace=True)
+            top_breakouts.rename(columns=self.facts_rename_dict, inplace=True)
+            bottom_breakouts.rename(columns=self.facts_rename_dict, inplace=True)
+            bottom_growth_breakouts.rename(columns=self.facts_rename_dict, inplace=True)
 
-        return top_breakouts, bottom_breakouts, bottom_growth_breakouts
+            return top_breakouts, bottom_breakouts, bottom_growth_breakouts
+        
+        else:
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
     def get_metric_driver_challenges_facts(self, dfs):
         # get bottom 3 dim_members by impact metric across all breakouts
