@@ -272,33 +272,6 @@ def market_share_analysis(parameters: SkillInput):
         export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
     )
 
-def transform_df_into_datatable_data(df):
-
-    return df.fillna('N/A').to_numpy().tolist()
-
-    if "parent_dim_member" in df.columns and "is_collapsible" in df.columns:
-
-        row_data = []
-
-        parent_dim_member_idx = df.columns.get_loc("parent_dim_member")
-        is_collapsible_idx = df.columns.get_loc("is_collapsible")
-
-        for index, row in df.iterrows():
-
-            is_collapsible = row[is_collapsible_idx]
-            parent_dim_member = row[parent_dim_member_idx]
-
-            if not is_collapsible and parent_dim_member != "":
-                # get row without parent_dim_member and is_collapsible
-
-                row_data.append(row[:parent_dim_member_idx] + row[parent_dim_member_idx+2:])
-            else:
-
-                node = {"data"}
-
-    else:
-        return df.fillna('N/A').to_numpy().tolist()
-
 def get_data(tab_name: str, df: pd.DataFrame):
 
     dim_member_col = f"Share by {tab_name}"
