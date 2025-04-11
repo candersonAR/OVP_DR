@@ -271,6 +271,8 @@ def market_share_analysis(parameters: SkillInput):
     tables = env.msa.get_display_tables()
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.msa.paramater_display_infomation.items()]
 
+    share_metric_label = env.msa.share_metric_label
+
     insights_dfs = [env.msa.subject_facts, env.msa.bottom_peers_facts, env.msa.top_peers_facts, env.msa.bottom_breakouts_facts, env.msa.top_breakouts_facts, env.msa.metric_driver_challenges_facts, env.msa.df_notes]
     followups = env.msa.suggestions
 
@@ -281,7 +283,8 @@ def market_share_analysis(parameters: SkillInput):
                                                             env.msa.warning_message,
                                                             parameters.arguments.max_prompt,
                                                             parameters.arguments.insight_prompt, 
-                                                            parameters.arguments.table_viz_layout)
+                                                            parameters.arguments.table_viz_layout,
+                                                            share_metric_label)
 
     return SkillOutput(
         final_prompt=final_prompt,
@@ -366,7 +369,7 @@ def get_data(tab_name: str, df: pd.DataFrame):
 
     return data
 
-def get_table_layout_vars_msa(tab_name: str, df: pd.DataFrame):
+def get_table_layout_vars_msa(tab_name: str, df: pd.DataFrame, share_metric_label: str):
     """
     Generates table layout variables from a DataFrame.
 
@@ -383,19 +386,35 @@ def get_table_layout_vars_msa(tab_name: str, df: pd.DataFrame):
     data = get_data(tab_name, df)
     col_defs = []
     columns = list(df.columns)
+
+    # share_col_def = {"name": share_metric_label, "group": []}
     for col in columns:
         if col in ['parent_dim_member', 'is_subject', 'is_collapsible', 'msg']:
             continue
+
+        group = share_metric_label
         if col == dim_member_col:
-            col_defs.append({"name": col, "style": {"textAlign": "left", "white-space": "pre"}})
+            col_defs.append({"name": col, "style": {"textAlign": "left", "white-space": "pre"}, "group": group})
         else:
-            col_defs.append({"name": col})
+            col_defs.append({"name": col, "group": group})
+
+    # col_defs = [share_col_def]
 
     table_vars["data"] = data
     table_vars["col_defs"] = col_defs
     return table_vars
 
-def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, insight_prompt, viz_layout):
+def render_layout(
+        tables: Dict[str, pd.DataFrame],
+        title: str,
+        subtitle: str,
+        insights_dfs: List[pd.DataFrame],
+        warnings: str,
+        max_prompt: str,
+        insight_prompt: str, 
+        viz_layout: str,
+        share_metric_label: str
+    ):
     facts = []
     for i_df in insights_dfs:
         facts.append(i_df.to_dict(orient='records'))
@@ -425,7 +444,7 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, i
         # dim_note = find_footnote(footnotes, table)
         # hide_footer = False if dim_note else True
 
-        table_vars = get_table_layout_vars_msa(name, table)
+        table_vars = get_table_layout_vars_msa(name, table, share_metric_label)
         # table_vars["hide_footer"] = hide_footer
         rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
