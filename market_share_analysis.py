@@ -39,25 +39,48 @@ DEFAULT_GLOBAL_VIEW = """
   {
     "dim": "state_name",
     "type": "share",
-    "exclude_in_mkt_size": true,
+    "exclude_in_mkt_size": false,
     "tab_label": "State",
     "drilldown": {
-      "dim": "venue_city",
-      "type": "contribution"
-    }
+         "dim": "venue_city",
+         "type": "contribution"
+      }
   },
   {
     "dim": "supplier_name",
-    "type": "contribution",
-    "exclude_in_mkt_size": false,
-    "tab_label": "Supplier",
+    "type": "share",
+    "exclude_in_mkt_size": true,
+    "tab_label": "Supplier"
+  },
+  {
+    "dim": "cocktail__name",
+    "type": "share",
+    "exclude_in_mkt_size": true,
+    "tab_label": "Cocktail"
+  },
+  {
+    "dim": "product_category_name",
+    "type": "share",
+    "exclude_in_mkt_size": true,
+    "tab_label": "Category",
     "drilldown": {
-      "dim": "state_name",
-      "type": "contribution"
-    }
+         "dim": "brand_name",
+         "type": "contribution"
+      }
   }
 ]
 """
+
+# DEFAULT_GLOBAL_VIEW = """
+# [
+#   {
+#     "dim": "supplier_name",
+#     "type": "share",
+#     "exclude_in_mkt_size": true,
+#     "tab_label": "Supplier"
+#   }
+# ]
+# """
 
 DEFAULT_MARKET_VIEW = """
 [
@@ -82,9 +105,7 @@ DEFAULT_MARKET_VIEW = """
 
 DEFAULT_INCLUDE_DRIVERS = True
 
-DEFAULT_MARKET_COLS = """
-["state_name"]
-"""
+DEFAULT_MARKET_COLS = """["state_name"]"""
 
 DEFAULT_IMPACT_CALCS = """"""
 
