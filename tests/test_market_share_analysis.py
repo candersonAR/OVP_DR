@@ -69,3 +69,55 @@ class TestMarketShareAnalysis:
         }
 
         self._assert_msa_runs_without_errors(parameters)
+
+    def test_menu_placement_share_in_2024_for_triple_sec_and_cointreau(self):
+        """Test with a single metric, no growth type"""
+
+        self._assert_msa_runs_without_errors(
+            parameters = {
+                "metric": self.metric_menu_placement_share,
+                "periods": [self.period_filter_2024],
+                "other_filters": [
+                    {
+                        "val": [
+                            "cointreau"
+                        ],
+                        "dim": "brand_name",
+                        "op": "="
+                    },
+                    {
+                        "val": [
+                            "triple sec"
+                        ],
+                        "dim": "product_category_name",
+                        "op": "="
+                    }
+                ]
+            }
+        )
+
+    def test_menu_placement_share_in_2024_for_new_york_and_cointreau(self):
+        """Test with a single metric, no growth type"""
+
+        self._assert_msa_runs_without_errors(
+            parameters = {
+                "metric": self.metric_menu_placement_share,
+                "periods": [self.period_filter_2024],
+                "other_filters": [
+                    {
+                        "val": [
+                            "cointreau"
+                        ],
+                        "dim": "brand_name",
+                        "op": "="
+                    },
+                    {
+                        "val": [
+                            "new york"
+                        ],
+                        "dim": "state_name",
+                        "op": "="
+                    }
+                ]
+            }
+        )
