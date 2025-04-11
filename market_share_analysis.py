@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from types import SimpleNamespace
-from typing import Optional
+from typing import Dict, List, Optional
 
 from skill_framework import SkillInput, SkillVisualization, skill, SkillParameter, SkillOutput, SuggestedQuestion, \
     ParameterDisplayDescription
@@ -299,18 +299,17 @@ def transform_df_into_datatable_data(df):
     else:
         return df.fillna('N/A').to_numpy().tolist()
 
-def get_data(df):
-    data = []
-    has_subject = 'is_subject' in df.columns
+def get_data(tab_name: str, df: pd.DataFrame):
 
-    for _, row in df.iterrows():
+    def get_row_data(row: pd.Series, has_subject: bool) -> List[Dict | str]:
+
         new_row = []
         is_subject = has_subject and bool(row['is_subject'])
         click_followup = row.get("msg")
 
         for col, val in row.items():
             # Skip the is_subject column from output
-            if col in ['is_subject', 'is_collapsible', 'msg']:
+            if col in ['is_subject', 'is_collapsible', 'msg', 'parent_dim_member']:
                 continue
 
             if pd.isna(val):
@@ -325,12 +324,52 @@ def get_data(df):
             new_row.append(val)
 
         if click_followup:
-            data.append({"data": new_row, "onClick": {"args": click_followup, "event": "askQuestion"}})
+            return {"data": new_row, "onClick": {"args": click_followup, "event": "askQuestion"}}
         else:
-            data.append(new_row)
+            return new_row
+
+    # for _, row in df.iterrows():
+
+    #     data.append(get_row_data(row))
+
+    dim_member_col = f"Share by {tab_name}"
+
+    data = []
+    has_subject = 'is_subject' in df.columns
+
+    # reset index
+    df = df.reset_index(drop=True)
+    index = 0
+
+    while index < len(df):
+
+        row = df.iloc[index]
+
+        if ('is_collapsible' in row and row['is_collapsible'] 
+            and 'parent_dim_member' in row and row['parent_dim_member'] is None):
+
+            parent_row_data = get_row_data(row, has_subject)
+            children = []
+
+            child_row = df.iloc[index + 1] if index + 1 < len(df) else None
+
+            while child_row is not None and child_row['parent_dim_member'] is not None:
+                children.append(get_row_data(child_row, has_subject))
+                index += 1
+                child_row = df.iloc[index + 1] if index + 1 < len(df) else None
+
+            parent_row_data["group"] = children
+
+            data.append(parent_row_data)
+
+        else:
+            data.append(get_row_data(row, has_subject))
+
+        index += 1
+
     return data
 
-def get_table_layout_vars_msa(df):
+def get_table_layout_vars_msa(tab_name: str, df: pd.DataFrame):
     """
     Generates table layout variables from a DataFrame.
 
@@ -343,11 +382,11 @@ def get_table_layout_vars_msa(df):
             - "col_defs" (list): A list of dictionaries representing the column definitions.
     """
     table_vars = {}
-    data = get_data(df)
+    data = get_data(tab_name, df)
     col_defs = []
     columns = list(df.columns)
     for ix, col in enumerate(columns):
-        if col in ['is_subject', 'is_collapsible', 'msg']:
+        if col in ['parent_dim_member', 'is_subject', 'is_collapsible', 'msg']:
             continue
         if ix == 0:
             col_defs.append({"name": col, "style": {"textAlign": "left", "white-space": "pre"}})
@@ -388,7 +427,7 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, i
         # dim_note = find_footnote(footnotes, table)
         # hide_footer = False if dim_note else True
 
-        table_vars = get_table_layout_vars_msa(table)
+        table_vars = get_table_layout_vars_msa(name, table)
         # table_vars["hide_footer"] = hide_footer
         rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
