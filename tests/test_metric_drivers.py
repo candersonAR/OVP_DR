@@ -3,7 +3,6 @@ from metric_drivers import simple_metric_driver
 from skill_framework import SkillInput, ExitFromSkillException
 from skill_framework.preview import preview_skill
 
-
 class TestMetricDrivers:
 
     # TODO: Can this test be made generic and put into ar-analytics?
@@ -18,7 +17,7 @@ class TestMetricDrivers:
     filter1 = {"dim": "brand_name", "op": "=", "val": "Papa's Pilar"}
     filter2 = {"dim": "state_name", "op": "=", "val": "Florida"}
 
-    preview = False # Set to True to get previews
+    preview = True # Set to True to get previews
 
     def _run_metric_drivers(self, parameters: Dict, preview: bool = False):
 
@@ -121,3 +120,24 @@ class TestMetricDrivers:
         }
 
         self._assert_metric_drivers_runs_without_errors(parameters)
+
+    def test_margarita_sparkline_issue(self):
+
+        parameters ={
+            "other_filters": [
+                {
+                "val": [
+                    "margarita"
+                ],
+                "dim": "cocktail__name",
+                "op": "="
+                }
+            ],
+            "periods": [
+                "2024"
+            ],
+            "metric": "menu_placements"
+        }
+
+        self._assert_metric_drivers_runs_without_errors(parameters)
+

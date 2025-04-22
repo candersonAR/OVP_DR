@@ -7,10 +7,11 @@ import itertools
 from dateutil.relativedelta import relativedelta
 
 from ar_analytics.helpers.utils import SkillPlatform, TemplateParameterSetup, Connector, DimensionHierarchy, pull_data, \
-    sparkline, SharedFn, \
+    SharedFn, \
     get_viz_header, old_get_date_label_str, NO_LIMIT_N, old_split_dim_and_metric_filters, old_get_filters_headline, \
     exit_with_status
 
+from temp_util import sparkline
 
 class MarketShareBreakdown:
     def __init__(self, sql_exec=None, dim_hierarchy={}, constrained_values={}, compare_date_warning_msg='', df_provider=None):
@@ -1178,12 +1179,12 @@ class MarketShareBreakdown:
                     # because the click_html might have valid html, e.g. click on image run trend
                     df[col] = df[col].apply(lambda x: self.remove_html_brackets(x))
 
-            cols_to_keep = ['parent_dim_member', 'dim_member', 'share_curr', 'share_comp', 'share_change',
-                            'share_change_mat', 'is_subject', 'msg']
-            if 'is_collapsible' in df.columns:
-                cols_to_keep.append('is_collapsible')
-            col_rename_dict = {}
-            col_rename_dict['dim_member'] = f"Share by {tab_name}"
+                cols_to_keep = ['parent_dim_member', 'dim_member', 'share_curr', 'share_comp', 'share_change',
+                                'share_change_mat', 'sparkline']
+                if 'is_collapsible' in df.columns:
+                    cols_to_keep.append('is_collapsible')
+                col_rename_dict = {}
+                col_rename_dict['dim_member'] = f"Share by {tab_name}"
 
             if self.date_labels.get('start_date') == self.date_labels.get('end_date'):
                 col_rename_dict['share_curr'] = str(self.date_labels.get('start_date'))
@@ -1225,6 +1226,11 @@ class MarketShareBreakdown:
                             col_rename_dict[driver] = self.metric_drivers_labels[driver]
 
             df = df[[col for col in cols_to_keep if col in df.columns]]
+
+            # rename columns for followup
+            if "msg" in df.columns:
+                col_rename_dict["msg"] = "followup_nl"
+
             df = df.rename(columns=col_rename_dict)
 
             tables[tab_name] = df

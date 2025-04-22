@@ -121,3 +121,23 @@ class TestMarketShareAnalysis:
                 ]
             }
         )
+
+    def test_margarita_failing_period_case(self):
+
+        parameters = {
+            "growth_type": "Y/Y",
+            "periods": [
+                "jan 2025"
+            ],
+            "other_filters": [
+                {
+                "val": [
+                    "margarita"
+                ],
+                "dim": "cocktail__name",
+                "op": "="
+                }
+            ]
+        }
+
+        self._assert_msa_runs_without_errors(parameters)

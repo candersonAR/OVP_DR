@@ -7,7 +7,9 @@ from skill_framework.preview import preview_skill
 from skill_framework.skills import ExportData
 from skill_framework.layouts import wire_layout
 
-from ar_analytics import DriverAnalysis, DriverAnalysisTemplateParameterSetup, ArUtils
+# from ar_analytics import DriverAnalysis, DriverAnalysisTemplateParameterSetup, ArUtils
+from ar_analytics import ArUtils
+from temp_driver_analysis import DriverAnalysis, DriverAnalysisTemplateParameterSetup
 from ar_analytics.defaults import metric_driver_analysis_config, default_table_layout, get_table_layout_vars
 from overproof_data_provider import DataProvider
 
@@ -84,7 +86,7 @@ logger = logging.getLogger(__name__)
     ]
 )
 def simple_metric_driver(parameters: SkillInput):
-    param_dict = {"periods": [], "metric": None, "limit_n": 10, "breakouts": None, "growth_type": "Y/Y", "other_filters": [], "calculated_metric_filters": None}
+    param_dict = {"periods": [], "limit_n": 10, "breakouts": None, "growth_type": "Y/Y", "other_filters": [], "calculated_metric_filters": None}
     print(f"Skill received following parameters: {parameters.arguments}")
     # Update param_dict with values from parameters.arguments if they exist
     for key in param_dict:
@@ -103,11 +105,6 @@ def simple_metric_driver(parameters: SkillInput):
         "Metrics": results['viz_metric_df']
     }
     tables.update(results['viz_breakout_dfs'])
-
-    # remove sparklines
-    for key, item in tables.items():
-        if "sparkline" in item.columns:
-            item.drop(columns=["sparkline"], inplace=True)
 
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.da.paramater_display_infomation.items()]
 
@@ -136,8 +133,6 @@ def simple_metric_driver(parameters: SkillInput):
 def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, insight_prompt, viz_layout):
     facts = []
     for i_df in insights_dfs:
-        if "sparkline" in i_df.columns:
-            i_df.drop(columns="sparkline", inplace=True)
         facts.append(i_df.to_dict(orient='records'))
 
     insight_template = jinja2.Template(insight_prompt).render(**{"facts": facts})
@@ -158,7 +153,7 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, i
     for name, table in tables.items():
         export_data[name] = table
         hide_footer = True
-        table_vars = get_table_layout_vars(table)
+        table_vars = get_table_layout_vars(table, sparkline_col="sparkline")
         table_vars["hide_footer"] = hide_footer
         rendered = wire_layout(json.loads(viz_layout), {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))

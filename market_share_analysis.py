@@ -304,44 +304,54 @@ def market_share_analysis(parameters: SkillInput):
         export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
     )
 
-def get_data(tab_name: str, df: pd.DataFrame):
+def get_data(
+        tab_name: str, 
+        df: pd.DataFrame, 
+        ignore_cols: List[str] = [], 
+        highlight_col: str = None, 
+        followup_col: str = None, 
+        sparkline_col: str = None
+    ):
 
     dim_member_col = f"Share by {tab_name}"
-    has_subject = 'is_subject' in df.columns
+    has_subject = highlight_col in df.columns
     is_grouping = 'is_collapsible' in df.columns and df['is_collapsible'].any()
 
-    def get_row_data(row: pd.Series, is_child: bool = False) -> List[Dict | str]:
+    def get_row_data(
+            row: pd.Series, 
+            is_child: bool = False
+        ) -> List[Dict | str]:
 
         new_row = []
-        is_subject = has_subject and bool(row['is_subject'])
-        click_followup = row.get("msg")
+        is_subject = has_subject and bool(row[highlight_col])
+        click_followup = row.get(followup_col)
 
         for col, val in row.items():
             # Skip the is_subject column from output
-            if col in ['is_subject', 'is_collapsible', 'msg', 'parent_dim_member']:
+            if col in ignore_cols:
                 continue
 
-            if pd.isna(val):
-                val = 'N/A'
+            if col == sparkline_col:
+                val = {"sparkLineData": val}
+            else:   
+                if pd.isna(val):
+                    val = 'N/A'
 
-            if is_grouping and col == dim_member_col:
-                val = val.strip().replace("-", "")
-                if is_child: # hack to add better looking indentation 
-                    four_space_indent = "    "
-                    val = f"{four_space_indent}{four_space_indent}{val}"
-
-            if is_subject:
-                val = {'style': {'background-color': '#FFF0BE'}, 'value': val}
-
-            if col == "msg":
-                val = {}
+                if is_grouping and col == dim_member_col:
+                    val = val.strip().replace("-", "")
+                    if is_child: # hack to add better looking indentation 
+                        four_space_indent = "    "
+                        val = f"{four_space_indent}{four_space_indent}{val}"
 
             new_row.append(val)
 
+        row_info = {"data": new_row}
         if click_followup:
-            return {"data": new_row, "onClick": {"args": click_followup, "event": "askQuestion"}}
-        else:
-            return new_row
+            row_info["onClick"] = {"args": click_followup, "event": "askQuestion"}
+        if is_subject:
+            row_info["style"] = {'background-color': '#FFF0BE'}
+
+        return row_info
 
     data = []
 
@@ -384,7 +394,11 @@ def get_table_layout_vars_msa(
         include_drivers: bool,
         metric_drivers_labels: Dict[str, str],
         subject_metric_drivers: Dict[str, List[str]],
-        decomposition_metric_drivers: Dict[str, List[str]]
+        decomposition_metric_drivers: Dict[str, List[str]],
+        ignore_cols=[], 
+        highlight_col="is_subject", 
+        followup_col="msg", 
+        sparkline_col="sparkline"
     ):
     """
     Generates table layout variables from a DataFrame.
@@ -397,20 +411,24 @@ def get_table_layout_vars_msa(
             - "data" (list): A list of lists representing the table data.
             - "col_defs" (list): A list of dictionaries representing the column definitions.
     """
+    ignore_cols = ignore_cols or []
+    # add the highlight and followup columns to the ignore list if they are provided
+    if highlight_col:
+        ignore_cols.append(highlight_col)
+    if followup_col:
+        ignore_cols.append(followup_col)
+
     table_vars = {}
     dim_member_col = f"Share by {tab_name}"
-    data = get_data(tab_name, df)
+    data = get_data(tab_name, df, ignore_cols=ignore_cols, highlight_col=highlight_col, followup_col=followup_col, sparkline_col=sparkline_col)
     col_defs = []
-    columns = list(df.columns)
+    columns = [col for col in list(df.columns) if col not in ignore_cols]
 
     # create a reverse mapping of all list values to the key
     subject_metric_driver_metrics_reverse = {metric_drivers_labels[item]: k for k, v in subject_metric_drivers.items() for item in v}
     decomposition_metric_driver_metrics_reverse = {metric_drivers_labels[item]: k for k, v in decomposition_metric_drivers.items() for item in v}
 
-    # share_col_def = {"name": share_metric_label, "group": []}
     for col in columns:
-        if col in ['parent_dim_member', 'is_subject', 'is_collapsible', 'msg']:
-            continue
 
         group = share_metric_label
         if col in subject_metric_driver_metrics_reverse:
@@ -418,12 +436,12 @@ def get_table_layout_vars_msa(
         elif col in decomposition_metric_driver_metrics_reverse:
             group = decomposition_metric_driver_metrics_reverse[col]
 
-        if col == dim_member_col:
+        if col == sparkline_col:
+            col_defs.append({"name": sparkline_col, "sparkLineOptions": {"colors": ["blue"]}, "group": group})
+        elif col == dim_member_col:
             col_defs.append({"name": col, "style": {"textAlign": "left", "white-space": "pre"}, "group": group})
         else:
             col_defs.append({"name": col, "group": group})
-
-    # col_defs = [share_col_def]
 
     table_vars["data"] = data
     table_vars["col_defs"] = col_defs
@@ -480,22 +498,14 @@ def render_layout(
             include_drivers,
             metric_drivers_labels,
             subject_metric_drivers,
-            decomposition_metric_drivers
+            decomposition_metric_drivers,
+            ignore_cols=["parent_dim_member", "is_collapsible"],
+            highlight_col="is_subject",
+            followup_col="msg",
+            sparkline_col="sparkline"
         )
         # table_vars["hide_footer"] = hide_footer
         rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
 
     return viz_list, insights, max_response_prompt, export_data
-
-if __name__ == '__main__':
-    skill_input: SkillInput = market_share_analysis.create_input(
-        arguments=
-    {
-        "metric": "menu_placements_share",
-        "periods": ["2024"],
-        "other_filters": [{"dim": "product_category_name", "op": "=", "val": "vodka"}]
-    }
-)
-    out = market_share_analysis(skill_input)
-    preview_skill(market_share_analysis, out)
