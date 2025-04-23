@@ -37,12 +37,14 @@ class DataProvider(object):
         self.depletions_agg_dict = {MenuColNames.SOLD_9LE_METRIC.value: np.sum, MenuColNames.SOLD_CASES_METRIC.value: np.sum}
         self.max_time_dimensions = [MenuColNames.MAX_TIME_MONTH_COL.value, MenuColNames.MAX_TIME_QUARTER_COL.value, MenuColNames.MAX_TIME_YEAR_COL.value]
         
-    def pull_data(self,
-                  metrics,
-                  breakouts=None,
-                  filters=None,
-                  order_cols=None,
-                  query_row_limit=None):
+    def pull_data(
+            self,
+            metrics,
+            breakouts=None,
+            filters=None,
+            order_cols=None,
+            query_row_limit=None
+        ) -> pd.DataFrame:
 
         df = pd.DataFrame()
         # todo: handle order cols, only used in trend to determine top n
@@ -142,7 +144,7 @@ class DataProvider(object):
                     sales_uplift_df["total_avg"] = total_avg_sales_uplift_df.iloc[0]["total_avg"]
 
                 sales_uplift_joined_agg_dict = {sales_uplift_metrics[0].get("name"): np.mean, "total_avg": np.sum}
-                agg_dims = cocktail_dims + time_period_dims
+                agg_dims = cocktail_dims + time_period_dims + depl_dims
                 if "date_column" in sales_uplift_df.columns and time_period_dims: 
                     # keep the trend date_column, which will mirror the time_period dim used
                     agg_dims.append("date_column")
