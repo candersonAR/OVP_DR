@@ -12,7 +12,7 @@ class TestMetricDrivers:
     # sales_met = "sales_share" # todo: need this for overproof?
     breakout1 = "brand_name"
     breakout2 = "state_name"
-    period_filter1 = "2024"
+    period_filter1 = "Q1 2024"
     growth_type = "Y/Y"
     filter1 = {"dim": "brand_name", "op": "=", "val": "Papa's Pilar"}
     filter2 = {"dim": "state_name", "op": "=", "val": "Florida"}
@@ -120,6 +120,15 @@ class TestMetricDrivers:
         }
 
         self._assert_metric_drivers_runs_without_errors(parameters)
+
+    def test_no_metric(self):
+        """Test with no metric"""
+
+        parameters = {
+            "periods": [self.period_filter1]
+        }
+
+        self._assert_metric_drivers_runs_with_error(parameters, ExitFromSkillException)
 
     def test_margarita_sparkline_issue(self):
 
