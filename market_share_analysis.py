@@ -53,7 +53,7 @@ DEFAULT_GLOBAL_VIEW = """
     "tab_label": "Supplier"
   },
   {
-    "dim": "cocktail__name",
+    "dim": "cocktail_group",
     "type": "share",
     "exclude_in_mkt_size": true,
     "tab_label": "Cocktail"
@@ -95,7 +95,7 @@ DEFAULT_MARKET_VIEW = """
       }
   },
   {
-    "dim": "cocktail__name",
+    "dim": "cocktail_group",
     "type": "share",
     "exclude_in_mkt_size": true,
     "tab_label": "Cocktail"
@@ -109,7 +109,20 @@ DEFAULT_MARKET_COLS = """["state_name"]"""
 
 DEFAULT_IMPACT_CALCS = """"""
 
-DEFAULT_DECOMPOSITION_DISPLAY_CONFIG = """"""
+DEFAULT_DECOMPOSITION_DISPLAY_CONFIG = """
+{
+    "Impact on Share": {
+        "menu_placements_share": [
+            "impact"
+        ]
+    },
+    "Metric Decomposition": {
+        "menu_placements": [
+            "pct_change"
+        ]
+    }
+}
+"""
 
 # DEFAULT_SUBJECT_METRIC_CONFIG = """
 # {
