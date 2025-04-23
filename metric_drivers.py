@@ -9,6 +9,7 @@ from skill_framework.layouts import wire_layout
 
 # from ar_analytics import DriverAnalysis, DriverAnalysisTemplateParameterSetup, ArUtils
 from ar_analytics import ArUtils
+from overproof_utilities import map_cocktail_filters_and_breakouts
 from temp_driver_analysis import DriverAnalysis, DriverAnalysisTemplateParameterSetup
 from ar_analytics.defaults import metric_driver_analysis_config, default_table_layout, get_table_layout_vars
 from overproof_data_provider import DataProvider
@@ -86,7 +87,7 @@ logger = logging.getLogger(__name__)
     ]
 )
 def simple_metric_driver(parameters: SkillInput):
-    param_dict = {"periods": [], "limit_n": 10, "breakouts": None, "growth_type": "Y/Y", "other_filters": [], "calculated_metric_filters": None}
+    param_dict = {"periods": [], "metric": "", "limit_n": 10, "breakouts": None, "growth_type": "Y/Y", "other_filters": [], "calculated_metric_filters": None}
     print(f"Skill received following parameters: {parameters.arguments}")
     # Update param_dict with values from parameters.arguments if they exist
     for key in param_dict:
@@ -96,6 +97,8 @@ def simple_metric_driver(parameters: SkillInput):
     env = SimpleNamespace(**param_dict)
     DriverAnalysisTemplateParameterSetup(env=env)
     env.da = DriverAnalysis.from_env(env=env, df_provider=DataProvider())
+
+    env.driver_analysis_parameters["query_filters"], env.driver_analysis_parameters["breakouts"] = map_cocktail_filters_and_breakouts(env.driver_analysis_parameters["query_filters"], env.driver_analysis_parameters["breakouts"])
 
     _ = env.da.run_from_env()
 

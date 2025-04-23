@@ -14,6 +14,8 @@ import jinja2
 import logging
 import json
 
+from overproof_utilities import map_cocktail_filters_and_breakouts
+
 RUNNING_LOCALLY = False
 
 logger = logging.getLogger(__name__)
@@ -102,6 +104,9 @@ def trend(parameters: SkillInput):
 
     env = SimpleNamespace(**param_dict)
     TrendTemplateParameterSetup(env=env)
+
+    env.trend_parameters["query_filters"], env.trend_parameters["breakouts"] = map_cocktail_filters_and_breakouts(env.trend_parameters["query_filters"], env.trend_parameters["breakouts"])
+
     env.trend = AdvanceTrend.from_env(env=env, df_provider=DataProvider())
     df = env.trend.run_from_env()
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.trend.paramater_display_infomation.items()]
