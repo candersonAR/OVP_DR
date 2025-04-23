@@ -3,20 +3,23 @@ from trend import trend
 from skill_framework import SkillInput
 from skill_framework.preview import preview_skill
 
+from overproof_utilities import MenuColNames
+
 
 class TestTrend:
 
     # TODO: Can this test be made generic and put into ar-analytics?
 
-    met1 = "sold_9le"
-    met2 = "menu_placements"
+    met1 = MenuColNames.SOLD_9LE_METRIC.value
+    met2 = MenuColNames.MENU_PLACEMENTS_METRIC.value
+    sales_uplift = MenuColNames.SALES_UPLIFT_METRIC.value
     # sales_met = "sales_share" # todo: need this for overproof?
-    breakout1 = "brand_name"
-    breakout2 = "state_name"
+    breakout1 = MenuColNames.BRAND_NAME_COL.value
+    breakout2 = MenuColNames.COCKTAIL_GROUP_COL.value
     period_filter1 = "2024"
     growth_type = "Y/Y"
-    filter1 = {"dim": "brand_name", "op": "=", "val": "Papa's Pilar"}
-    filter2 = {"dim": "state_name", "op": "=", "val": "Florida"}
+    filter1 = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "Papa's Pilar"}
+    filter2 = {"dim": MenuColNames.COCKTAIL_GROUP_COL.value, "op": "=", "val": "Margaritas"}
 
     preview = False # Set to True to get previews
 
@@ -204,6 +207,17 @@ class TestTrend:
             "breakouts": [self.breakout1],
             "other_filters": [self.filter1, self.filter2],
             "growth_type": self.growth_type
+        }
+
+        self._assert_trend_runs_without_errors(parameters)
+
+    def test_sales_uplift_by_cocktail_group_in_2024(self):
+        """Test sales uplift by cocktail group in 2024"""
+
+        parameters = {
+            "metrics": [self.sales_uplift],
+            "periods": [self.period_filter1],
+            "breakouts": [self.breakout2]
         }
 
         self._assert_trend_runs_without_errors(parameters)
