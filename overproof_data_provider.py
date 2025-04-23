@@ -77,7 +77,7 @@ class DataProvider(object):
                                 dataset_id=self.menu_dataset)
             dfs.append(menu_df)
 
-        if depletion_metrics and not is_cross_query:
+        if depletion_metrics and not (cocktail_dims or cocktail_filter_dims):
             depletion_df = pull_data(metrics=depletion_metrics,
                                      breakouts=breakouts,
                                      filters=filters,

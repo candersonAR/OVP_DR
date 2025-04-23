@@ -221,3 +221,33 @@ class TestTrend:
         }
 
         self._assert_trend_runs_without_errors(parameters)
+
+    def test_sales_uplift_and_sold_9le_by_brand_in_q1_2024(self):
+        """
+        Test sales uplift and sold 9le by brand in q1 2024
+
+        From CON-3859
+        """
+
+        parameters = {
+            "metrics": [self.sales_uplift, self.met1],
+            "periods": [self.period_filter1],
+            "other_filters": [
+                {
+                    "val": [
+                        "papa's pilar"
+                    ],
+                    "dim": "brand_name",
+                    "op": "="
+                },
+                {
+                    "val": [
+                        "miami"
+                    ],
+                    "dim": "venue__city",
+                    "op": "="
+                }
+            ]
+        }
+        
+        self._assert_trend_runs_without_errors(parameters)
