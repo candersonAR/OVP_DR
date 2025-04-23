@@ -13,6 +13,8 @@ class TestTrend:
     met1 = MenuColNames.SOLD_9LE_METRIC.value
     met2 = MenuColNames.MENU_PLACEMENTS_METRIC.value
     sales_uplift = MenuColNames.SALES_UPLIFT_METRIC.value
+    sold_cases = MenuColNames.SOLD_CASES_METRIC.value
+
     # sales_met = "sales_share" # todo: need this for overproof?
     breakout1 = MenuColNames.BRAND_NAME_COL.value
     breakout2 = MenuColNames.COCKTAIL_GROUP_COL.value
@@ -250,4 +252,34 @@ class TestTrend:
             ]
         }
         
+        self._assert_trend_runs_without_errors(parameters)
+
+    def test_sales_uplift_and_sold_cases_in_q1_2024_filtered_to_papas_pilar_and_miami(self):
+
+        parameters = {
+            "metrics": [
+                self.sales_uplift,
+                self.sold_cases
+            ],
+            "periods": [
+                "q1 2024"
+            ],
+            "other_filters": [
+                {
+                    "val": [
+                        "papa's pilar"
+                    ],
+                    "dim": "brand_name",
+                    "op": "="
+                },
+                {
+                    "val": [
+                        "miami"
+                    ],
+                    "dim": "venue__city",
+                    "op": "="
+                }
+            ]
+        }
+
         self._assert_trend_runs_without_errors(parameters)
