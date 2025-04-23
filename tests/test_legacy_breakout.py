@@ -63,3 +63,11 @@ class TestLegacyBreakout:
             'periods': [self.period__q1_2024],
             'other_filters': [self.filter__brand_name__papa_pilar]
         })
+
+    def test_sales_uplift_by_brand_in_q1_2024(self):
+
+        self._assert_simple_breakout_runs_without_errors(parameters={
+            'metrics': [self.metric__sales_uplift],
+            'breakouts': [self.breakout__brand_name],
+            'periods': [self.period__q1_2024]
+        })
