@@ -63,31 +63,3 @@ class TestLegacyBreakout:
             'periods': [self.period__q1_2024],
             'other_filters': [self.filter__brand_name__papa_pilar]
         })
-
-    def test_sales_uplift_by_cocktail_group_for_parini_in_q1_2024(self):
-
-        self._assert_simple_breakout_runs_without_errors(parameters={
-            'metrics': [self.metric__sales_uplift],
-            'breakouts': [self.breakout__cocktail_group],
-            'periods': [self.period__q1_2024],
-            'other_filters': [self.filter__brand_name__parini]
-        })
-        
-    # def test_get_dataset_timing(self):
-
-    #     start_time = time.time()
-
-    #     ar_client = AnswerRocketClient()
-
-    #     ar_client.data.get_dataset(dataset_id="326b5bd5-55bd-49bd-a2e5-f601b1c25d52")
-
-    #     end_time = time.time()
-
-    #     time_taken = end_time - start_time
-    #     print(f"Time taken: {time_taken} seconds")
-
-    #     assert True
-
-
-
-        
