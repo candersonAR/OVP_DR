@@ -77,6 +77,7 @@ class DataProvider(object):
                                 order_cols=order_cols,
                                 query_row_limit=query_row_limit,
                                 dataset_id=self.menu_dataset)
+            print(f"total_rows: {len(menu_df)}")
             dfs.append(menu_df)
 
         if depletion_metrics and not (cocktail_dims or cocktail_filter_dims):
@@ -86,6 +87,7 @@ class DataProvider(object):
                                      order_cols=order_cols,
                                      query_row_limit=query_row_limit,
                                      dataset_id=self.depletion_dataset)
+            print(f"total_rows: {len(depletion_df)}")
             dfs.append(depletion_df)
 
         if is_cross_query:
@@ -102,6 +104,7 @@ class DataProvider(object):
                                      filters=filters,
                                      query_row_limit=10000000, # hardcoded, can get pretty large
                                      dataset_id=self.menu_dataset)
+            print(f"total_rows: {len(qualifier_df)}")
 
             qualifier_df = qualifier_df.drop_duplicates()
 
@@ -172,6 +175,7 @@ class DataProvider(object):
                                             order_cols=order_cols,
                                             query_row_limit=query_row_limit,
                                             dataset_id=self.depletion_dataset)
+                print(f"total_rows: {len(pre_depletion_df)}")
 
                 # this join should add all the dims as breakouts with cocktails dim coming from qualifier_df
                 # this might do intended cross join for product used in multiple cocktails
