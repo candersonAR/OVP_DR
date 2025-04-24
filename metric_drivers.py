@@ -99,6 +99,7 @@ def simple_metric_driver(parameters: SkillInput):
     env.da = DriverAnalysis.from_env(env=env, df_provider=DataProvider())
 
     env.driver_analysis_parameters["query_filters"], env.driver_analysis_parameters["breakouts"] = map_cocktail_filters_and_breakouts(env.driver_analysis_parameters["query_filters"], env.driver_analysis_parameters["breakouts"])
+    env.driver_analysis_parameters["include_sparklines"] = False
 
     _ = env.da.run_from_env()
 
