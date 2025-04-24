@@ -405,7 +405,7 @@ class MarketShareBreakdown:
 
         subject_member = subject_member.lower()
 
-        return subject_dim, subject_member, query_filters
+        return subject_dim, subject_member, subject_filter, query_filters
 
     def process_period_filters(self, period_filters):
         if not period_filters:
@@ -1469,7 +1469,7 @@ class MarketShareBreakdown:
 
         self.share_metric_label = self.share_metric.get('label', self.share_metric['name'])
 
-        self.subject_dim, self.subject_member, query_filters = self.process_subject_filter(query_filters)
+        self.subject_dim, self.subject_member, self.subject_filter, query_filters = self.process_subject_filter(query_filters)
 
         self.core_fact_cols = [
             'dim',
@@ -1562,7 +1562,10 @@ class MarketShareBreakdown:
             share_type = breakout.get("type")  # share or contribution
 
             if share_type == 'share':
-                breakout_df = self.pull_data_func(metrics=[self.metric], filters=market_filters + [self.trend_period],
+                breakout_filters = market_filters + [self.trend_period]
+                if self.is_agg_metrics:
+                    breakout_filters.append(self.subject_filter)
+                breakout_df = self.pull_data_func(metrics=[self.metric], filters=breakout_filters,
                                         breakouts=[breakout_dim, self.subject_dim, self.period_col],
                                         order_cols=[{"col": self.period_col, "direction": 'ASC'}])
                 self.check_row_limit(breakout_df)
@@ -1570,7 +1573,11 @@ class MarketShareBreakdown:
                 breakout_df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
                 breakout_df['metric'] = breakout_df['metric'].astype(float)
 
-                df = self.transform_breakout_df(breakout_df, breakout_dim, market_filters, top_n=top_n)
+                total_market_filters = market_filters
+                if self.is_agg_metrics:
+                    total_market_filters.append(self.subject_filter)
+
+                df = self.transform_breakout_df(breakout_df, breakout_dim, total_market_filters, top_n=top_n)
 
                 dim_member_filters = self.get_dim_member_filters(df, breakout_dim)
 
