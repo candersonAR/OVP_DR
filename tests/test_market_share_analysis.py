@@ -3,22 +3,25 @@ from market_share_analysis import market_share_analysis
 from skill_framework import SkillInput
 from skill_framework.preview import preview_skill
 
+from overproof_utilities import MenuColNames
+
 
 class TestMarketShareAnalysis:
 
     # TODO: Can this test be made generic and put into ar-analytics?
 
     # met1 = "sold_9le"
-    metric_menu_placement_share = "menu_placements_share"
+    metric_menu_placement_share = MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value
     # met2 = "menu_placements"
     # sales_met = "sales_share" # todo: need this for overproof?
-    breakout1 = "brand_name"
-    breakout2 = "state_name"
-    period_filter_2024 = "2024"
+    # breakout1 = MenuColNames.BRAND_NAME_COL.value
+    # breakout2 = MenuColNames.STATE_NAME_COL.value
+
+    period_filter_2024 = "q3 2024"
     growth_type = "Y/Y"
-    papa_pillars_filter = {"dim": "brand_name", "op": "=", "val": "Papa's Pilar"}
-    margarita_filter = {"val":["margarita"],"dim":"cocktail__name","op":"="}
-    vodka_filter = {"dim": "product_category_name", "op": "=", "val": "vodka"}
+    papa_pillars_filter = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "Papa's Pilar"}
+    margarita_filter = {"val":["margaritas"],"dim":MenuColNames.COCKTAIL_GROUP_COL.value,"op":"="}
+    vodka_filter = {"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": "vodka"}
 
     preview = False # Set to True to get previews
 
