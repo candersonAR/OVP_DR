@@ -512,7 +512,7 @@ def render_layout(
             metric_drivers_labels,
             subject_metric_drivers,
             decomposition_metric_drivers,
-            ignore_cols=["parent_dim_member", "is_collapsible"],
+            ignore_cols=["parent_dim_member", "is_collapsible", "sparkline", "L12M Chg Y/Y"],
             highlight_col="is_subject",
             followup_col="followup_nl",
             sparkline_col="sparkline"
@@ -522,3 +522,28 @@ def render_layout(
         viz_list.append(SkillVisualization(title=name, layout=rendered))
 
     return viz_list, insights, max_response_prompt, export_data
+
+if __name__ == '__main__':
+    skill_input: SkillInput = market_share_analysis.create_input(
+        arguments=
+        {
+            "periods": [
+                "oct 2024",
+                "nov 2024",
+                "dec 2025"
+            ],
+            "other_filters": [
+                {
+                    "val": [
+                        "Margaritas"
+                    ],
+                    "dim": "cocktail_group",
+                    "op": "="
+                }
+            ],
+            "metric": "menu_placements",
+            "growth_type": "Y/Y"
+        }
+)
+    out = market_share_analysis(skill_input)
+    preview_skill(market_share_analysis, out)
