@@ -22,7 +22,7 @@ import logging
 import pandas as pd
 
 from overproof_data_provider import DataProvider
-from overproof_utilities import map_cocktails
+from overproof_utilities import map_cocktails, map_msa_views
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +274,9 @@ def market_share_analysis(parameters: SkillInput):
     env = SimpleNamespace(**param_dict)
     MSBTemplateParameterSetup(env=env)
     df_provider = DataProvider()
+
+    env.msb_parameters["market_view"] = map_msa_views(env.msb_parameters["query_filters"], env.msb_parameters["market_view"])
+    env.msb_parameters["global_view"] = map_msa_views(env.msb_parameters["query_filters"], env.msb_parameters["global_view"])
 
     updated_filters, _, updated_dim_hierarchy = map_cocktails(
         env.msb_parameters["query_filters"], 

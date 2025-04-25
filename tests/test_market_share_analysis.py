@@ -144,3 +144,25 @@ class TestMarketShareAnalysis:
         }
 
         self._assert_msa_runs_without_errors(parameters)
+
+    def test_msa_tequila(self):
+
+        parameters = {
+            "periods": [
+                "dec 2024",
+                "jan 2025",
+                "feb 2025"
+            ],
+            "other_filters": [
+                {
+                "val": [
+                    "tequila"
+                ],
+                "dim": "product_category_name",
+                "op": "="
+                }
+            ],
+            "metric": "menu_placements_share"
+        }
+
+        self._assert_msa_runs_without_errors(parameters)

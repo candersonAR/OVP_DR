@@ -129,6 +129,9 @@ def map_dimension_hierarchy(filters: list[dict], breakouts: list[str], dim_hiera
         for node in nodes:
             new_node = copy.deepcopy(node)
 
+            if not hpd and new_node["col"].lower() in product_dimensions:
+                continue
+
             if new_node["col"].lower() in mapping_dict:
                 updated_dim = helper.get_dimension_prop(mapping_dict[new_node["col"].lower()], dim_props)
                 new_node["name"] = updated_dim.get("label", updated_dim["name"])
@@ -142,3 +145,28 @@ def map_dimension_hierarchy(filters: list[dict], breakouts: list[str], dim_hiera
         return new_nodes        
 
     return map_dimension(dim_hierarchy)
+
+def map_msa_views(filters: list[dict], views=List[dict]) -> List[dict]:
+
+    # Check if any of the filters are product dimensions
+    hpd = has_product_dimension(filters=filters)
+
+    if hpd:
+        mapping_dict = cocktail_to_ingredient_of_cocktail
+    else:
+        mapping_dict = ingredient_of_cocktail_to_cocktail
+
+    def apply_mapping(view: dict) -> dict:
+        if view["dim"].lower() in mapping_dict:
+            view["dim"] = mapping_dict[view["dim"].lower()]
+        return view
+    
+    updated_view = []
+
+    for obj in views:
+        new_obj = apply_mapping(obj)
+        if "drilldown" in new_obj and new_obj["drilldown"]:
+            new_obj["drilldown"] = apply_mapping(new_obj["drilldown"])
+        updated_view.append(new_obj)
+
+    return updated_view
