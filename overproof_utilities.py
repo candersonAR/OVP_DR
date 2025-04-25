@@ -1,5 +1,8 @@
+import copy
 from enum import Enum
 from typing import List, Tuple
+
+from ar_analytics.helpers.utils import SharedFn
 
 # Cocktail dimension constants
 
@@ -14,7 +17,7 @@ class MenuColNames(Enum):
 
     # Dimension names
     COCKTAIL_NAME_COL = "cocktail__name"
-    COCKTAIL_GROUP_COL = "cocktail__group"
+    COCKTAIL_GROUP_COL = "cocktail_group"
     COCKTAIL_STYLE_COL = "cocktail__style"
     COCKTAIL_FAMILY_COL = "cocktail_family"
     COCKTAIL_FLAVORS_COL = "cocktail__flavors"
@@ -86,7 +89,7 @@ def map_filters(filters: list[dict], mapping_dict: dict) -> list[dict]:
         for f in filters
     ]
 
-def map_cocktail_filters_and_breakouts(filters: list[dict], breakouts: list[str]) -> Tuple[List[dict], List[str]]:
+def map_cocktails(filters: list[dict], breakouts: list[str], dim_hierarchy: List[dict], dim_props: dict) -> Tuple[List[dict], List[str], List[dict]]:
     """
     Maps the cocktail breakouts/filters to the ingredient of cocktail breakouts/filters when there are product dimensions.
     Product dimensions only are applicable for ingredients of cocktails.
@@ -99,7 +102,43 @@ def map_cocktail_filters_and_breakouts(filters: list[dict], breakouts: list[str]
         Tuple[List[dict], List[str]]: The mapped filters and breakouts.
     """
 
-    if has_product_dimension(filters, breakouts):
-        return map_filters(filters, cocktail_to_ingredient_of_cocktail), map_breakouts(breakouts, cocktail_to_ingredient_of_cocktail)
+    dim_hierarchy = map_dimension_hierarchy(filters, breakouts, dim_hierarchy, dim_props)
+    mapping_dict = cocktail_to_ingredient_of_cocktail if has_product_dimension(filters, breakouts) else ingredient_of_cocktail_to_cocktail
+
+    return map_filters(filters, mapping_dict), map_breakouts(breakouts, mapping_dict), dim_hierarchy
+    
+def map_dimension_hierarchy(filters: list[dict], breakouts: list[str], dim_hierarchy: List[dict], dim_props: dict) -> dict:
+    """
+    Maps the cocktail dimension hierarchy to the ingredient of cocktail dimension hierarchy when there are product dimensions.
+    Product dimensions only are applicable for ingredients of cocktails.
+    """
+
+    helper = SharedFn()
+
+    hpd = has_product_dimension(filters, breakouts)
+
+    if hpd:
+        mapping_dict = cocktail_to_ingredient_of_cocktail
     else:
-        return map_filters(filters, ingredient_of_cocktail_to_cocktail), map_breakouts(breakouts, ingredient_of_cocktail_to_cocktail)
+        mapping_dict = ingredient_of_cocktail_to_cocktail
+
+    def map_dimension(nodes: List[dict]) -> List[dict]:
+
+        new_nodes = []
+
+        for node in nodes:
+            new_node = copy.deepcopy(node)
+
+            if new_node["col"].lower() in mapping_dict:
+                updated_dim = helper.get_dimension_prop(mapping_dict[new_node["col"].lower()], dim_props)
+                new_node["name"] = updated_dim.get("label", updated_dim["name"])
+                new_node["col"] = updated_dim["name"]
+
+            if node["children"]:
+                new_node["children"] = map_dimension(node["children"])
+
+            new_nodes.append(new_node)
+
+        return new_nodes        
+
+    return map_dimension(dim_hierarchy)

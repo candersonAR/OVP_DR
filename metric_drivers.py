@@ -9,7 +9,7 @@ from skill_framework.layouts import wire_layout
 
 # from ar_analytics import DriverAnalysis, DriverAnalysisTemplateParameterSetup, ArUtils
 from ar_analytics import ArUtils
-from overproof_utilities import map_cocktail_filters_and_breakouts
+from overproof_utilities import map_cocktails
 from temp_driver_analysis import DriverAnalysis, DriverAnalysisTemplateParameterSetup
 from ar_analytics.defaults import metric_driver_analysis_config, default_table_layout, get_table_layout_vars
 from overproof_data_provider import DataProvider
@@ -96,11 +96,20 @@ def simple_metric_driver(parameters: SkillInput):
 
     env = SimpleNamespace(**param_dict)
     DriverAnalysisTemplateParameterSetup(env=env)
-    env.da = DriverAnalysis.from_env(env=env, df_provider=DataProvider())
 
-    env.driver_analysis_parameters["query_filters"], env.driver_analysis_parameters["breakouts"] = map_cocktail_filters_and_breakouts(env.driver_analysis_parameters["query_filters"], env.driver_analysis_parameters["breakouts"])
+    # Mapping cocktails -> ingredient of cocktails and vice versa
+    updated_filters, updated_breakouts, updated_dim_hierarchy = map_cocktails(
+        env.driver_analysis_parameters["query_filters"], 
+        env.driver_analysis_parameters["breakouts"], 
+        env.driver_analysis_parameters["dim_hierarchy"],
+        env.dim_props
+    )
+    env.driver_analysis_parameters["query_filters"] = updated_filters
+    env.driver_analysis_parameters["breakouts"] = updated_breakouts
+    env.driver_analysis_parameters["dim_hierarchy"] = updated_dim_hierarchy
     env.driver_analysis_parameters["include_sparklines"] = False
-
+    
+    env.da = DriverAnalysis.from_env(env=env, df_provider=DataProvider())
     _ = env.da.run_from_env()
 
     results = env.da.get_display_tables()
