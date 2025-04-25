@@ -7,17 +7,18 @@ class MenuColNames(Enum):
     # Metric names
     MENU_PLACEMENTS_METRIC = "menu_placements"
     VENUE_PLACEMENTS_METRIC = "venue_placements"
+    MENU_PLACEMENTS_SHARE_METRIC = "menu_placements_share"
     SOLD_9LE_METRIC = "sold_9le"
     SOLD_CASES_METRIC = "sold_cases"
     SALES_UPLIFT_METRIC = "sales_uplift"
 
     # Dimension names
-    COCKTAIL_NAME_COL = "cocktail_name"
-    COCKTAIL_GROUP_COL = "cocktail_group"
-    COCKTAIL_STYLE_COL = "cocktail_style"
+    COCKTAIL_NAME_COL = "cocktail__name"
+    COCKTAIL_GROUP_COL = "cocktail__group"
+    COCKTAIL_STYLE_COL = "cocktail__style"
     COCKTAIL_FAMILY_COL = "cocktail_family"
-    COCKTAIL_FLAVORS_COL = "cocktail_flavors"
-    COCKTAIL_DERIVED_FROM_COL = "cocktail_derived_from"
+    COCKTAIL_FLAVORS_COL = "cocktail__flavors"
+    COCKTAIL_DERIVED_FROM_COL = "cocktail__derived_from"
 
     INGREDIENT_OF_COCKTAIL_NAME_COL = "ingredient_of_cocktail_name"
     INGREDIENT_OF_COCKTAIL_GROUP_COL = "ingredient_of_cocktail_group"

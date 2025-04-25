@@ -150,3 +150,23 @@ class TestMetricDrivers:
 
         self._assert_metric_drivers_runs_without_errors(parameters)
 
+    def test_menu_placements_in_last_quarter(self):
+
+        parameters = {
+            "metric": "menu_placements",
+            "periods": ["last quarter"],
+            "other_filters": [
+                {
+                    "val": [
+                        "classic"
+                    ],
+                    "dim": "cocktail__style",
+                    "op": "="
+                }
+            ],
+            "growth_type": "Y/Y"
+        }
+
+        self._assert_metric_drivers_runs_without_errors(parameters)
+
+
