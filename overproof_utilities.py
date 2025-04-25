@@ -51,6 +51,8 @@ cocktail_to_ingredient_of_cocktail = {
     MenuColNames.COCKTAIL_FAMILY_COL.value: MenuColNames.INGREDIENT_OF_COCKTAIL_FAMILY_COL.value,
 }
 
+ingredient_of_cocktail_to_cocktail = {v: k for k, v in cocktail_to_ingredient_of_cocktail.items()}
+
 product_dimensions = [
     MenuColNames.PRODUCT_NAME_COL.value, 
     MenuColNames.BRAND_NAME_COL.value, 
@@ -70,17 +72,17 @@ def has_product_dimension(filters: List[dict] = None, breakouts: List[str] = Non
 
     return any(f["col"].lower() in product_dimensions for f in filters) or any(b.lower() in product_dimensions for b in breakouts)
 
-def map_cocktail_breakouts(breakouts: List[str]) -> List[str]:
-    return [cocktail_to_ingredient_of_cocktail[b.lower()] if b.lower() in cocktail_to_ingredient_of_cocktail else b for b in breakouts]
+def map_breakouts(breakouts: List[str], mapping_dict: dict) -> List[str]:
+    return [mapping_dict[b.lower()] if b.lower() in mapping_dict else b for b in breakouts]
 
-def map_cocktail_filters(filters: list[dict]) -> list[dict]:
+def map_filters(filters: list[dict], mapping_dict: dict) -> list[dict]:
     return [
         {
-            "col": cocktail_to_ingredient_of_cocktail[f["col"].lower()], 
+            "col": mapping_dict[f["col"].lower()], 
             "op": f["op"], 
             "val": f["val"]
         } 
-        if f["col"].lower() in cocktail_to_ingredient_of_cocktail else f 
+        if f["col"].lower() in mapping_dict else f 
         for f in filters
     ]
 
@@ -98,6 +100,6 @@ def map_cocktail_filters_and_breakouts(filters: list[dict], breakouts: list[str]
     """
 
     if has_product_dimension(filters, breakouts):
-        return map_cocktail_filters(filters), map_cocktail_breakouts(breakouts)
+        return map_filters(filters, cocktail_to_ingredient_of_cocktail), map_breakouts(breakouts, cocktail_to_ingredient_of_cocktail)
     else:
-        return filters, breakouts
+        return map_filters(filters, ingredient_of_cocktail_to_cocktail), map_breakouts(breakouts, ingredient_of_cocktail_to_cocktail)
