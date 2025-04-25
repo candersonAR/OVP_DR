@@ -537,22 +537,29 @@ if __name__ == '__main__':
     skill_input: SkillInput = market_share_analysis.create_input(
         arguments=
         {
+            "growth_type": "Y/Y",
             "periods": [
-                "oct 2024",
-                "nov 2024",
-                "dec 2025"
+                "jul 2024",
+                "aug 2024",
+                "sep 2024"
             ],
             "other_filters": [
                 {
                     "val": [
-                        "Margaritas"
+                        "non-classic"
                     ],
-                    "dim": "cocktail_group",
+                    "dim": "cocktail__style",
+                    "op": "="
+                },
+                {
+                    "val": [
+                        "new york"
+                    ],
+                    "dim": "state_name",
                     "op": "="
                 }
             ],
-            "metric": "menu_placements",
-            "growth_type": "Y/Y"
+            "metric": "menu_placements_share"
         }
 )
     out = market_share_analysis(skill_input)

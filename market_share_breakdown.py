@@ -1667,24 +1667,28 @@ class MarketShareBreakdown:
                 drilldown = breakout.get("drilldown")
 
                 # pull data using query_filters
-                print("Check 3")
-                df = self.pull_data_func(metrics=[self.metric], filters=query_filters + [self.trend_period],
-                               breakouts=[breakout_dim, self.period_col],
-                               order_cols=[{"col": self.period_col, "direction": 'ASC'}])
+                df = self.get_drivers_df(table, breakout_dim, [self.metric], query_filters,
+                                         [])
+                df = self.adding_metric_columns(df=df, main_metric=self.metric, dim=breakout_dim, top_n=top_n)
                 self.check_row_limit(df)
 
-                df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
-                df['metric'] = df['metric'].astype(float)
+                print("Check 3")
+                # df = self.pull_data_func(metrics=[self.metric], filters=query_filters + [self.trend_period],
+                #                breakouts=[breakout_dim, self.period_col],
+                #                order_cols=[{"col": self.period_col, "direction": 'ASC'}])
 
-                # transform contribution df
-                df = self.transform_contribution_df(df, breakout_dim, top_n=top_n)
+                # df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
+                # df['metric'] = df['metric'].astype(float)
+                #
+                # # transform contribution df
+                # df = self.transform_contribution_df(df, breakout_dim, top_n=top_n)
 
                 dim_member_filters = self.get_dim_member_filters(df, breakout_dim)
 
-                if self.include_drivers:
-                    drivers_df = self.get_drivers_df(table, breakout_dim, query_metrics, query_filters,
-                                                     dim_member_filters, share_type='contribution')
-                    df = pd.merge(df, drivers_df, on='dim_member', how='left')
+                # if self.include_drivers:
+                #     drivers_df = self.get_drivers_df(table, breakout_dim, query_metrics, query_filters,
+                #                                      dim_member_filters, share_type='contribution')
+                #     df = pd.merge(df, drivers_df, on='dim_member', how='left')
 
                 df['level'] = breakout['level']
                 df['parent_dim'] = None
@@ -1698,6 +1702,7 @@ class MarketShareBreakdown:
                                                x: f"Run {self.share_metric_label} trend for {breakout_dim_label} {x['dim_member']}{dim_filter_str}",
                                            axis=1)
 
+                drilldown = False
                 if drilldown:
 
                     # make parent row collapsable
