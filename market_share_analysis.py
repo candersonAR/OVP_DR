@@ -276,14 +276,14 @@ def market_share_analysis(parameters: SkillInput):
     df_provider = DataProvider()
 
     updated_filters, _, updated_dim_hierarchy = map_cocktails(
-        env.msa_parameters["query_filters"], 
+        env.msb_parameters["query_filters"], 
         [], 
-        env.msa_parameters["dim_hierarchy"],
+        env.msb_parameters["dim_hierarchy"],
         env.dim_props
     )
 
-    env.msa_parameters["query_filters"] = updated_filters
-    env.msa_parameters["dim_hierarchy"] = updated_dim_hierarchy
+    env.msb_parameters["query_filters"] = updated_filters
+    env.msb_parameters["dim_hierarchy"] = updated_dim_hierarchy
 
     env.msa = MarketShareBreakdown(
         sql_exec=env.msb_parameters["con"],
