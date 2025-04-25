@@ -99,7 +99,7 @@ class DataProvider(object):
                                      dataset_id=self.depletion_dataset)
             end_time = time.time()
             exec_time = end_time - start_time
-            print(f"total_rows: {len(menu_df)} with time: {exec_time:.2f}s")
+            print(f"total_rows: {len(depletion_df)} with time: {exec_time:.2f}s")
             self.query_timing += np.round(exec_time, 2)
             self.query_count += 1
 
@@ -122,7 +122,7 @@ class DataProvider(object):
                                      dataset_id=self.menu_dataset)
             end_time = time.time()
             exec_time = end_time - start_time
-            print(f"total_rows: {len(menu_df)} with time: {exec_time:.2f}s")
+            print(f"total_rows: {len(qualifier_df)} with time: {exec_time:.2f}s")
             self.query_timing += np.round(exec_time, 2)
             self.query_count += 1
 
@@ -149,7 +149,7 @@ class DataProvider(object):
                 )
                 end_time = time.time()
                 exec_time = end_time - start_time
-                print(f"total_rows: {len(menu_df)} with time: {exec_time:.2f}s")
+                print(f"total_rows: {len(sales_uplift_df)} with time: {exec_time:.2f}s")
                 self.query_timing += np.round(exec_time, 2)
                 self.query_count += 1
 
@@ -205,7 +205,7 @@ class DataProvider(object):
                                             dataset_id=self.depletion_dataset)
                 end_time = time.time()
                 exec_time = end_time - start_time
-                print(f"total_rows: {len(menu_df)} with time: {exec_time:.2f}s")
+                print(f"total_rows: {len(pre_depletion_df)} with time: {exec_time:.2f}s")
                 self.query_timing += np.round(exec_time, 2)
                 self.query_count += 1
 
