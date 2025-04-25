@@ -3,6 +3,7 @@ from ar_analytics.helpers.utils import pull_data, exit_with_status
 from overproof_utilities import MenuColNames
 import pandas as pd
 import numpy as np
+import time
 
 class DataProvider(object):
     def __init__(self):
@@ -36,6 +37,8 @@ class DataProvider(object):
         self.psudo_join_col = "join_col"
         self.depletions_agg_dict = {MenuColNames.SOLD_9LE_METRIC.value: np.sum, MenuColNames.SOLD_CASES_METRIC.value: np.sum}
         self.max_time_dimensions = [MenuColNames.MAX_TIME_MONTH_COL.value, MenuColNames.MAX_TIME_QUARTER_COL.value, MenuColNames.MAX_TIME_YEAR_COL.value]
+        self.query_timing = 0
+        self.query_count = 0
         
     def pull_data(
             self,
@@ -71,23 +74,35 @@ class DataProvider(object):
 
         dfs = []
         if menu_metrics:
+            start_time = time.time()
             menu_df = pull_data(metrics=menu_metrics,
                                 breakouts=breakouts,
                                 filters=filters,
                                 order_cols=order_cols,
                                 query_row_limit=query_row_limit,
                                 dataset_id=self.menu_dataset)
-            print(f"total_rows: {len(menu_df)}")
+            end_time = time.time()
+            exec_time = end_time - start_time
+            print(f"total_rows: {len(menu_df)} with time: {exec_time:.2f}s")
+            self.query_timing += np.round(exec_time, 2)
+            self.query_count += 1
+
             dfs.append(menu_df)
 
         if depletion_metrics and not (cocktail_dims or cocktail_filter_dims):
+            start_time = time.time()
             depletion_df = pull_data(metrics=depletion_metrics,
                                      breakouts=breakouts,
                                      filters=filters,
                                      order_cols=order_cols,
                                      query_row_limit=query_row_limit,
                                      dataset_id=self.depletion_dataset)
-            print(f"total_rows: {len(depletion_df)}")
+            end_time = time.time()
+            exec_time = end_time - start_time
+            print(f"total_rows: {len(menu_df)} with time: {exec_time:.2f}s")
+            self.query_timing += np.round(exec_time, 2)
+            self.query_count += 1
+
             dfs.append(depletion_df)
 
         if is_cross_query:
@@ -99,12 +114,17 @@ class DataProvider(object):
                 qualifier_joining_dims = qualifier_joining_dims + [dim for dim in self.common_dims if dim not in qualifier_joining_dims]
 
             # limiting the data to only venues and product relevant for cocktails
+            start_time = time.time()
             qualifier_df = pull_data(metrics=[],
                                      breakouts=qualifier_joining_dims,
                                      filters=filters,
                                      query_row_limit=10000000, # hardcoded, can get pretty large
                                      dataset_id=self.menu_dataset)
-            print(f"total_rows: {len(qualifier_df)}")
+            end_time = time.time()
+            exec_time = end_time - start_time
+            print(f"total_rows: {len(menu_df)} with time: {exec_time:.2f}s")
+            self.query_timing += np.round(exec_time, 2)
+            self.query_count += 1
 
             qualifier_df = qualifier_df.drop_duplicates()
 
@@ -118,7 +138,8 @@ class DataProvider(object):
                 # remove cocktail dims since it's not available on depletion data
                 depl_dims = [b for b in breakouts if b not in cocktail_dims and b not in uplift_common_dims]
                 depl_fils = [f for f in filters if f["col"] not in self.cross_dims] if filters else []
-                
+
+                start_time = time.time()
                 sales_uplift_df = pull_data(
                     metrics=sales_uplift_metrics,
                     breakouts=depl_dims + uplift_common_dims,
@@ -126,6 +147,11 @@ class DataProvider(object):
                     order_cols=order_cols,
                     dataset_id=self.depletion_dataset
                 )
+                end_time = time.time()
+                exec_time = end_time - start_time
+                print(f"total_rows: {len(menu_df)} with time: {exec_time:.2f}s")
+                self.query_timing += np.round(exec_time, 2)
+                self.query_count += 1
 
                 # get the total average sales uplift across the time period breakout
                 # time_period_dims = [d for d in depl_dims if d in self.max_time_dimensions]
@@ -169,13 +195,19 @@ class DataProvider(object):
                 # remove cocktail dims since it's not available on depletion data
                 depl_dims = [b for b in breakouts if b not in cocktail_dims]
                 depl_fils = [f for f in filters if f["col"] not in self.cross_dims] if filters else []
+
+                start_time = time.time()
                 pre_depletion_df = pull_data(metrics=depletion_metrics,
                                             breakouts=depl_dims + self.common_dims,
                                             filters=depl_fils,
                                             order_cols=order_cols,
                                             query_row_limit=query_row_limit,
                                             dataset_id=self.depletion_dataset)
-                print(f"total_rows: {len(pre_depletion_df)}")
+                end_time = time.time()
+                exec_time = end_time - start_time
+                print(f"total_rows: {len(menu_df)} with time: {exec_time:.2f}s")
+                self.query_timing += np.round(exec_time, 2)
+                self.query_count += 1
 
                 # this join should add all the dims as breakouts with cocktails dim coming from qualifier_df
                 # this might do intended cross join for product used in multiple cocktails
@@ -234,4 +266,10 @@ class DataProvider(object):
         df = self.pull_data(metrics, breakouts, filters, order_cols, query_row_limit)
         
         return df
+
+    def get_query_stats(self):
+        df = pd.DataFrame({"Query Count": [self.query_count], "Query Timing (Incl. SQL Gen)": [self.query_timing]})
+        print("--------- Query Stats ---------")
+        print(df.to_string())
+        return None
     
