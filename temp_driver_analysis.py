@@ -80,6 +80,8 @@ class DriverAnalysis:
             if self.ba.dim_hier.dim_hierarchy:
                 filter_dims = [f['col'] for f in dim_filters if not is_filter_token(f['val'])]
                 breakouts = self.ba.dim_hier.get_next_level_keys(filter_dims, include_children=True, node_limit=node_limit) + self.ba.dim_hier.find_unmentioned_top_level_keys(filter_dims)
+                # deduplicating breakouts
+                breakouts = list(dict.fromkeys(breakouts))
 
         filter_str = ", ".join([f"{self.helper.get_dimension_prop(f['col'], self.dim_props).get('label', f['col'])} {f['op']} {f['val']}" for f in dim_filters])
         if not filter_str:
