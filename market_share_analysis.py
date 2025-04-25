@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import time
 from dataclasses import dataclass
 import json
 from types import SimpleNamespace
@@ -270,12 +272,13 @@ def market_share_analysis(parameters: SkillInput):
 
     env = SimpleNamespace(**param_dict)
     MSBTemplateParameterSetup(env=env)
+    df_provider = DataProvider()
     env.msa = MarketShareBreakdown(
         sql_exec=env.msb_parameters["con"],
         dim_hierarchy=env.msb_parameters["dim_hierarchy"],
         constrained_values=env.msb_parameters["constrained_values"],
         compare_date_warning_msg=env.msb_parameters["compare_date_warning_msg"],
-        df_provider=DataProvider()
+        df_provider=df_provider
     )
     env.msa.env = env
 
@@ -283,6 +286,9 @@ def market_share_analysis(parameters: SkillInput):
     print(result_dfs.keys())
     tables = env.msa.get_display_tables()
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.msa.paramater_display_infomation.items()]
+
+    # print consolidated query timing
+    df_provider.get_query_stats()
 
     share_metric_label = env.msa.share_metric_label
     include_drivers = env.msa.include_drivers
@@ -484,7 +490,11 @@ def render_layout(
 
     # adding insights
     ar_utils = ArUtils()
+    start_time = time.time()
     insights = ar_utils.get_llm_response(insight_template)
+    end_time = time.time()
+    exec_time = end_time - start_time
+    print(f"Narrative Generation Timing: {exec_time:.2f}s")
     viz_list = []
     export_data = {}
 
@@ -512,7 +522,7 @@ def render_layout(
             metric_drivers_labels,
             subject_metric_drivers,
             decomposition_metric_drivers,
-            ignore_cols=["parent_dim_member", "is_collapsible"],
+            ignore_cols=["parent_dim_member", "is_collapsible", "sparkline", "L12M Chg Y/Y"],
             highlight_col="is_subject",
             followup_col="followup_nl",
             sparkline_col="sparkline"
@@ -522,3 +532,28 @@ def render_layout(
         viz_list.append(SkillVisualization(title=name, layout=rendered))
 
     return viz_list, insights, max_response_prompt, export_data
+
+if __name__ == '__main__':
+    skill_input: SkillInput = market_share_analysis.create_input(
+        arguments=
+        {
+            "periods": [
+                "oct 2024",
+                "nov 2024",
+                "dec 2025"
+            ],
+            "other_filters": [
+                {
+                    "val": [
+                        "Margaritas"
+                    ],
+                    "dim": "cocktail_group",
+                    "op": "="
+                }
+            ],
+            "metric": "menu_placements",
+            "growth_type": "Y/Y"
+        }
+)
+    out = market_share_analysis(skill_input)
+    preview_skill(market_share_analysis, out)
