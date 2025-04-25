@@ -314,4 +314,9 @@ class MetricTreeAnalysis:
 
         self._metric_df = metric_df
 
+        # renaming metric names to metric labels
+        index_to_rename = {m.get('name'): m.get("label", m.get('name')) for m in metrics if m.get('name') and m.get('name') in metric_df.index}
+        if index_to_rename:
+            metric_df = metric_df.rename(index=index_to_rename)
+
         return metric_df
