@@ -6,7 +6,9 @@ from skill_framework.preview import preview_skill
 from skill_framework.skills import ExportData
 from skill_framework.layouts import wire_layout
 
-from ar_analytics import AdvanceTrend, TrendTemplateParameterSetup, ArUtils
+# from ar_analytics import AdvanceTrend, TrendTemplateParameterSetup, ArUtils
+from ar_analytics import ArUtils, TrendTemplateParameterSetup
+from temp_trend import OverproofTemporaryAdvanceTrend
 from ar_analytics.defaults import trend_analysis_config, default_trend_chart_layout, default_table_layout, get_table_layout_vars
 
 from overproof_data_provider import DataProvider
@@ -116,7 +118,7 @@ def trend(parameters: SkillInput):
     env.trend_parameters["breakouts"] = updated_breakouts
     env.trend_parameters["dim_hierarchy"] = updated_dim_hierarchy
 
-    env.trend = AdvanceTrend.from_env(env=env, df_provider=DataProvider())
+    env.trend = OverproofTemporaryAdvanceTrend.from_env(env=env, df_provider=DataProvider())
     df = env.trend.run_from_env()
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.trend.paramater_display_infomation.items()]
     tables = [env.trend.display_dfs.get("Metrics Table")]

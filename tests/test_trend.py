@@ -19,7 +19,8 @@ class TestTrend:
     breakout1 = MenuColNames.BRAND_NAME_COL.value
     breakout2 = MenuColNames.COCKTAIL_GROUP_COL.value
     period_filter1 = "2024"
-    growth_type = "Y/Y"
+    growth_type__yoy = "Y/Y"
+    growth_type__pop = "P/P"
     filter1 = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "Papa's Pilar"}
     filter2 = {"dim": MenuColNames.COCKTAIL_GROUP_COL.value, "op": "=", "val": "Margaritas"}
 
@@ -59,7 +60,7 @@ class TestTrend:
         parameters = {
             "metrics": [self.met1],
             "periods": [self.period_filter1],
-            "growth_type": self.growth_type
+            "growth_type": self.growth_type__yoy
         }
 
         self._assert_trend_runs_without_errors(parameters)
@@ -118,7 +119,7 @@ class TestTrend:
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
             "other_filters": [self.filter1, self.filter2],
-            "growth_type": self.growth_type
+            "growth_type": self.growth_type__yoy
         }
 
         self._assert_trend_runs_without_errors(parameters)
@@ -148,7 +149,7 @@ class TestTrend:
         parameters = {
             "metrics": [self.met1, self.met2],
             "periods": [self.period_filter1],
-            "growth_type": self.growth_type
+            "growth_type": self.growth_type__yoy
         }
 
         self._assert_trend_runs_without_errors(parameters)
@@ -171,7 +172,7 @@ class TestTrend:
             "metrics": [self.met1, self.met2],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
-            "growth_type": self.growth_type
+            "growth_type": self.growth_type__yoy
         }
 
         self._assert_trend_runs_without_errors(parameters)
@@ -208,7 +209,7 @@ class TestTrend:
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
             "other_filters": [self.filter1, self.filter2],
-            "growth_type": self.growth_type
+            "growth_type": self.growth_type__yoy
         }
 
         self._assert_trend_runs_without_errors(parameters)
@@ -280,6 +281,26 @@ class TestTrend:
                     "op": "="
                 }
             ]
+        }
+
+        self._assert_trend_runs_without_errors(parameters)
+
+    def test_sales_uplift_and_sold_cases_by_brand_name_in_2024_yoy_growth(self):
+
+        parameters = {
+            "metrics": [
+                self.sales_uplift,
+                self.sold_cases
+            ],
+            "time_granularity": "month",
+            "periods": [
+                self.period_filter1
+            ],
+            "breakouts": [
+                self.breakout1
+            ],
+            # "growth_type": self.growth_type__yoy
+            "growth_type": self.growth_type__pop
         }
 
         self._assert_trend_runs_without_errors(parameters)

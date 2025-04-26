@@ -5,12 +5,15 @@ import pandas as pd
 import numpy as np
 import time
 
+import logging
+_logger = logging.getLogger(__name__)
+
+from ar_analytics.helpers.utils import _process_filters, AnswerRocketClient, get_dataset_id
+import time
+
 class DataProvider(object):
     def __init__(self):
         # make sure this is correct
-        # self.menu_dataset = "c50c3d81-682f-463e-a924-747d62e62318" # Ar Max Menu Table
-        # self.depletion_dataset = "d91a492a-d62a-405e-90d8-0b9a3984f5ea" # Ar Max Depletions
-
         self.menu_dataset = "326b5bd5-55bd-49bd-a2e5-f601b1c25d52" # Snowflake Ar Max Menu Table
         self.depletion_dataset = "88a8a548-b4bc-4800-8397-e7d7f8d0bdb4" # Snowflake Ar Max Depletions
 
@@ -107,44 +110,41 @@ class DataProvider(object):
 
         if is_cross_query:
 
-            qualifier_joining_dims = cocktail_dims
-            if sales_uplift_metrics:
-                qualifier_joining_dims = qualifier_joining_dims + time_period_dims + [MenuColNames.VENUE_ID_COL.value]
-            if (depletion_metrics and (cocktail_dims or cocktail_filter_dims)):
-                qualifier_joining_dims = qualifier_joining_dims + [dim for dim in self.common_dims if dim not in qualifier_joining_dims]
-
-            # limiting the data to only venues and product relevant for cocktails
-            start_time = time.time()
-            qualifier_df = pull_data(metrics=[],
-                                     breakouts=qualifier_joining_dims,
-                                     filters=filters,
-                                     query_row_limit=10000000, # hardcoded, can get pretty large
-                                     dataset_id=self.menu_dataset)
-            end_time = time.time()
-            exec_time = end_time - start_time
-            print(f"total_rows: {len(qualifier_df)} with time: {exec_time:.2f}s")
-            self.query_timing += np.round(exec_time, 2)
-            self.query_count += 1
-
-            qualifier_df = qualifier_df.drop_duplicates()
-
             if sales_uplift_metrics:
 
-                uplift_common_dims = [MenuColNames.VENUE_ID_COL.value] + time_period_dims
+                depl_dims = [b for b in breakouts if b not in cocktail_dims and b not in time_period_dims]
+                uplift_common_dims = [MenuColNames.VENUE_ID_COL.value] + time_period_dims + depl_dims
+                # venue_breakouts = cocktail_dims + uplift_common_dims
+                venue_breakouts = cocktail_dims + uplift_common_dims
+                # venue_filters = [f for f in filters if f["col"] not in venue_breakouts]
+                venue_filters = []
 
-                # only concerned with venues for sales uplift
-                qualifier_df = qualifier_df[cocktail_dims + uplift_common_dims].drop_duplicates()
+                start_time = time.time()
+                venues_df = pull_data(
+                    metrics=[],
+                    breakouts=venue_breakouts,
+                    filters=filters,
+                    query_row_limit=10000000, # hardcoded, can get pretty large
+                    dataset_id=self.menu_dataset
+                )
+                end_time = time.time()
+                exec_time = end_time - start_time
+                print(f"total_rows: {len(venues_df)} with time: {exec_time:.2f}s")
+                self.query_timing += np.round(exec_time, 2)
+                self.query_count += 1
+
+                venues_df = venues_df.drop_duplicates()
 
                 # remove cocktail dims since it's not available on depletion data
-                depl_dims = [b for b in breakouts if b not in cocktail_dims and b not in uplift_common_dims]
                 depl_fils = [f for f in filters if f["col"] not in self.cross_dims] if filters else []
 
                 start_time = time.time()
                 sales_uplift_df = pull_data(
                     metrics=sales_uplift_metrics,
-                    breakouts=depl_dims + uplift_common_dims,
+                    breakouts=uplift_common_dims,
                     filters=depl_fils,
                     order_cols=order_cols,
+                    query_row_limit=10000000, # hardcoded, can get pretty large
                     dataset_id=self.depletion_dataset
                 )
                 end_time = time.time()
@@ -156,18 +156,20 @@ class DataProvider(object):
                 # get the total average sales uplift across the time period breakout
                 # time_period_dims = [d for d in depl_dims if d in self.max_time_dimensions]
                 sales_uplift_total_avg_agg_dict = {sales_uplift_metrics[0].get("name"): np.mean}
-                if time_period_dims:
-                    total_avg_sales_uplift_df = sales_uplift_df.groupby(time_period_dims).agg(sales_uplift_total_avg_agg_dict).reset_index()
+
+                avg_join_dims = depl_dims + time_period_dims
+                if avg_join_dims:
+                    total_avg_sales_uplift_df = sales_uplift_df.groupby(avg_join_dims).agg(sales_uplift_total_avg_agg_dict).reset_index()
                 else:
                     total_avg_sales_uplift_df = sales_uplift_df.agg(sales_uplift_total_avg_agg_dict).to_frame().T
                 total_avg_sales_uplift_df = total_avg_sales_uplift_df.rename(columns={sales_uplift_metrics[0].get("name"): "total_avg"})
 
                 # join the sales uplift df with the qualifier df on the common dims
-                sales_uplift_df = pd.merge(sales_uplift_df, qualifier_df, on=uplift_common_dims, how='inner')
+                sales_uplift_df = pd.merge(sales_uplift_df, venues_df, on=uplift_common_dims, how='inner')
 
-                # join the sales uplift df with the total avg sales uplift df on the time period dims, aggregate by time period dims
-                if time_period_dims:
-                    sales_uplift_df = pd.merge(sales_uplift_df, total_avg_sales_uplift_df, on=time_period_dims, how='left')
+                # join the sales uplift df with the total avg sales uplift df on the time period dims and depletion dims
+                if avg_join_dims:
+                    sales_uplift_df = pd.merge(sales_uplift_df, total_avg_sales_uplift_df, on=avg_join_dims, how='left')
                 else:
                     # total_avg_sales_uplift_df should be a scalar
                     sales_uplift_df["total_avg"] = total_avg_sales_uplift_df.iloc[0]["total_avg"]
@@ -188,9 +190,30 @@ class DataProvider(object):
 
                 # drop the total_avg column
                 sales_uplift_df = sales_uplift_df.drop(columns=["total_avg"])
+                if query_row_limit:
+                    # sort by sales_uplift_metric in descending order
+                    sales_uplift_df = sales_uplift_df.sort_values(by=MenuColNames.SALES_UPLIFT_METRIC.value, ascending=False)
+                    sales_uplift_df = sales_uplift_df.head(query_row_limit)
+                
                 dfs.append(sales_uplift_df)
 
             if (depletion_metrics and (cocktail_dims or cocktail_filter_dims)):
+
+                qualifier_joining_dims = cocktail_dims + self.common_dims
+
+                start_time = time.time()
+                # limiting the data to only venues and product relevant for cocktails
+                qualifier_df = pull_data(metrics=[],
+                                        breakouts=qualifier_joining_dims,
+                                        filters=filters,
+                                        dataset_id=self.menu_dataset)
+                end_time = time.time()
+                exec_time = end_time - start_time
+                print(f"total_rows: {len(qualifier_df)} with time: {exec_time:.2f}s")
+                self.query_timing += np.round(exec_time, 2)
+                self.query_count += 1
+
+                qualifier_df = qualifier_df.drop_duplicates()
 
                 # remove cocktail dims since it's not available on depletion data
                 depl_dims = [b for b in breakouts if b not in cocktail_dims]
@@ -272,4 +295,3 @@ class DataProvider(object):
         print("--------- Query Stats ---------")
         print(df.to_string())
         return None
-    
