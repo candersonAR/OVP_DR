@@ -120,3 +120,39 @@ class TestPullData:
         )
         assert self.breakout__brand_name in df.columns
         assert self.metric__sales_uplift in df.columns
+
+    def test_sales_uplift_by_brand_no_top_n(self):
+        df = self.pull_data_function(
+            metrics = self._get_metrics([self.metric__sales_uplift]),
+            breakouts = [self.breakout__brand_name],
+            filters = [
+                self.filter__max_time_date__2024
+            ]
+        )
+
+        assert self.metric__sales_uplift in df.columns
+        assert self.breakout__brand_name in df.columns
+
+    def test_sales_uplift_for_papas_pilar_in_2024(self):
+        df = self.pull_data_function(
+            metrics = self._get_metrics([self.metric__sales_uplift]),
+            filters = [self.filter__brand_name__papas_pilar, self.filter__max_time_date__2024]
+        )
+
+        assert self.metric__sales_uplift in df.columns
+        assert self.filter__brand_name__papas_pilar in df.columns
+        assert self.filter__max_time_date__2024 in df.columns
+        
+    def test_sales_uplift_by_month_for_papas_pilar_and_daiquiri_in_2024(self):
+        df = self.pull_data_function(
+            metrics = self._get_metrics([self.metric__sales_uplift]),
+            breakouts = [self.breakout__max_time_month],
+            filters = [self.filter__brand_name__papas_pilar, self.filter__ingredient_of_cocktail_group__daiquiri, self.filter__max_time_date__2024]
+        )
+
+        assert self.metric__sales_uplift in df.columns
+        assert self.breakout__max_time_month in df.columns
+
+        # TODO: Validate this value
+        uplift_value = df[self.metric__sales_uplift].sum()
+        self.assert_value_between_threshold(uplift_value, 0.549725604285, 0.001)
