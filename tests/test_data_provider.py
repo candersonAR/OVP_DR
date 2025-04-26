@@ -12,7 +12,8 @@ class TestPullData:
     breakout__max_time_month = MenuColNames.MAX_TIME_MONTH_COL.value
     breakout__brand_name = MenuColNames.BRAND_NAME_COL.value
 
-    filter__max_time_date__2024 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2024-01-01' AND '2024-03-31'"}
+    filter__max_time_date__Q1_2024 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2024-01-01' AND '2024-03-31'"}
+    filter__max_time_date__2024 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2024-01-01' AND '2024-12-31'"}
     filter__brand_name__papas_pilar = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "papa's pilar"}
     filter__ingredient_of_cocktail_group__daiquiri = {"col": MenuColNames.INGREDIENT_OF_COCKTAIL_GROUP_COL.value, "op": "=", "val": "daiquiri"}
 
@@ -35,7 +36,7 @@ class TestPullData:
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__sales_uplift]),
             breakouts = [self.breakout__cocktail_group],
-            filters = [self.filter__max_time_date__2024]
+            filters = [self.filter__max_time_date__Q1_2024]
         )
         assert self.metric__sales_uplift in df.columns
         assert self.breakout__cocktail_group in df.columns
@@ -44,7 +45,7 @@ class TestPullData:
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__sold_9le]),
             breakouts = [self.breakout__cocktail_group],
-            filters = [self.filter__max_time_date__2024]
+            filters = [self.filter__max_time_date__Q1_2024]
         )
         assert self.metric__sold_9le in df.columns
         assert self.breakout__cocktail_group in df.columns
@@ -53,7 +54,7 @@ class TestPullData:
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__sales_uplift]) ,
             breakouts = [self.breakout__cocktail_group],
-            filters = [self.filter__brand_name__papas_pilar, self.filter__max_time_date__2024]
+            filters = [self.filter__brand_name__papas_pilar, self.filter__max_time_date__Q1_2024]
         )
         assert self.metric__sales_uplift in df.columns
         assert self.breakout__cocktail_group in df.columns
@@ -62,7 +63,7 @@ class TestPullData:
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__sold_9le]),
             breakouts = [self.breakout__cocktail_group],
-            filters = [self.filter__brand_name__papas_pilar, self.filter__max_time_date__2024]
+            filters = [self.filter__brand_name__papas_pilar, self.filter__max_time_date__Q1_2024]
         )
         assert self.metric__sold_9le in df.columns
         assert self.breakout__cocktail_group in df.columns
@@ -73,7 +74,7 @@ class TestPullData:
             filters = [
                 self.filter__brand_name__papas_pilar, 
                 self.filter__ingredient_of_cocktail_group__daiquiri, 
-                self.filter__max_time_date__2024
+                self.filter__max_time_date__Q1_2024
             ]
         )
         assert self.metric__sales_uplift in df.columns
@@ -90,7 +91,7 @@ class TestPullData:
             filters = [
                 self.filter__brand_name__papas_pilar, 
                 self.filter__ingredient_of_cocktail_group__daiquiri, 
-                self.filter__max_time_date__2024
+                self.filter__max_time_date__Q1_2024
             ]
         )
         assert self.metric__sales_uplift in df.columns
@@ -100,7 +101,7 @@ class TestPullData:
 
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__sales_uplift, self.metric__sold_cases]),
-            filters = [self.filter__brand_name__papas_pilar, self.filter__max_time_date__2024]
+            filters = [self.filter__brand_name__papas_pilar, self.filter__max_time_date__Q1_2024]
         )
         assert self.metric__sales_uplift in df.columns
         assert self.metric__sold_cases in df.columns
@@ -115,7 +116,7 @@ class TestPullData:
             breakouts = [self.breakout__brand_name],
             filters = [
                 self.filter__ingredient_of_cocktail_group__daiquiri, 
-                self.filter__max_time_date__2024
+                self.filter__max_time_date__Q1_2024
             ]
         )
         assert self.breakout__brand_name in df.columns
@@ -126,7 +127,7 @@ class TestPullData:
             metrics = self._get_metrics([self.metric__sales_uplift]),
             breakouts = [self.breakout__brand_name],
             filters = [
-                self.filter__max_time_date__2024
+                self.filter__max_time_date__Q1_2024
             ]
         )
 
@@ -136,18 +137,18 @@ class TestPullData:
     def test_sales_uplift_for_papas_pilar_in_2024(self):
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__sales_uplift]),
-            filters = [self.filter__brand_name__papas_pilar, self.filter__max_time_date__2024]
+            filters = [self.filter__brand_name__papas_pilar, self.filter__max_time_date__Q1_2024]
         )
 
         assert self.metric__sales_uplift in df.columns
         assert self.filter__brand_name__papas_pilar in df.columns
-        assert self.filter__max_time_date__2024 in df.columns
+        assert self.filter__max_time_date__Q1_2024 in df.columns
         
     def test_sales_uplift_by_month_for_papas_pilar_and_daiquiri_in_2024(self):
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__sales_uplift]),
             breakouts = [self.breakout__max_time_month],
-            filters = [self.filter__brand_name__papas_pilar, self.filter__ingredient_of_cocktail_group__daiquiri, self.filter__max_time_date__2024]
+            filters = [self.filter__brand_name__papas_pilar, self.filter__ingredient_of_cocktail_group__daiquiri, self.filter__max_time_date__Q1_2024]
         )
 
         assert self.metric__sales_uplift in df.columns
