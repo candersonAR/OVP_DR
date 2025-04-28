@@ -14,6 +14,8 @@ import jinja2
 import logging
 import json
 
+from overproof_utilities import map_cocktails
+
 logger = logging.getLogger(__name__)
 
 @skill(
@@ -98,6 +100,18 @@ def simple_breakout(parameters: SkillInput):
 
     env = SimpleNamespace(**param_dict)
     BreakoutAnalysisTemplateParameterSetup(env=env)
+
+    # Mapping cocktails -> ingredient of cocktails and vice versa
+    updated_filters, updated_breakouts, updated_dim_hierarchy = map_cocktails(
+        env.breakout_parameters["query_filters"], 
+        env.breakout_parameters["breakouts"], 
+        env.breakout_parameters["dim_hierarchy"],
+        env.dim_props
+    )
+    env.breakout_parameters["query_filters"] = updated_filters
+    env.breakout_parameters["breakouts"] = updated_breakouts
+    env.breakout_parameters["dim_hierarchy"] = updated_dim_hierarchy
+
     env.ba = BreakoutAnalysis.from_env(env=env, df_provider=DataProvider())
     _ = env.ba.run_from_env()
 

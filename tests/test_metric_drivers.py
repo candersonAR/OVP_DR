@@ -3,7 +3,6 @@ from metric_drivers import simple_metric_driver
 from skill_framework import SkillInput, ExitFromSkillException
 from skill_framework.preview import preview_skill
 
-
 class TestMetricDrivers:
 
     # TODO: Can this test be made generic and put into ar-analytics?
@@ -13,12 +12,12 @@ class TestMetricDrivers:
     # sales_met = "sales_share" # todo: need this for overproof?
     breakout1 = "brand_name"
     breakout2 = "state_name"
-    period_filter1 = "2024"
+    period_filter1 = "Q1 2024"
     growth_type = "Y/Y"
     filter1 = {"dim": "brand_name", "op": "=", "val": "Papa's Pilar"}
     filter2 = {"dim": "state_name", "op": "=", "val": "Florida"}
 
-    preview = False # Set to True to get previews
+    preview = True # Set to True to get previews
 
     def _run_metric_drivers(self, parameters: Dict, preview: bool = False):
 
@@ -121,3 +120,53 @@ class TestMetricDrivers:
         }
 
         self._assert_metric_drivers_runs_without_errors(parameters)
+
+    def test_no_metric(self):
+        """Test with no metric"""
+
+        parameters = {
+            "periods": [self.period_filter1]
+        }
+
+        self._assert_metric_drivers_runs_with_error(parameters, ExitFromSkillException)
+
+    def test_margarita_sparkline_issue(self):
+
+        parameters ={
+            "other_filters": [
+                {
+                "val": [
+                    "margarita"
+                ],
+                "dim": "cocktail__name",
+                "op": "="
+                }
+            ],
+            "periods": [
+                "2024"
+            ],
+            "metric": "menu_placements"
+        }
+
+        self._assert_metric_drivers_runs_without_errors(parameters)
+
+    def test_menu_placements_in_last_quarter(self):
+
+        parameters = {
+            "metric": "menu_placements",
+            "periods": ["last quarter"],
+            "other_filters": [
+                {
+                    "val": [
+                        "classic"
+                    ],
+                    "dim": "cocktail__style",
+                    "op": "="
+                }
+            ],
+            "growth_type": "Y/Y"
+        }
+
+        self._assert_metric_drivers_runs_without_errors(parameters)
+
+
