@@ -107,7 +107,8 @@ def simple_metric_driver(parameters: SkillInput):
     env.driver_analysis_parameters["dim_hierarchy"] = updated_dim_hierarchy
     env.driver_analysis_parameters["include_sparklines"] = False
     
-    env.da = DriverAnalysis.from_env(env=env, df_provider=DataProvider())
+    df_provider = DataProvider()
+    env.da = DriverAnalysis.from_env(env=env, df_provider=df_provider)
     _ = env.da.run_from_env()
 
     results = env.da.get_display_tables()
@@ -116,6 +117,10 @@ def simple_metric_driver(parameters: SkillInput):
         "Metrics": results['viz_metric_df']
     }
     tables.update(results['viz_breakout_dfs'])
+
+    general_footnote = ""
+    if df_provider.removed_nones:
+        general_footnote = "Many Items are not aligned with specific product details. These values are filtered from analysis and calculations to provide a more clear answer."
 
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.da.paramater_display_infomation.items()]
 
@@ -128,6 +133,7 @@ def simple_metric_driver(parameters: SkillInput):
                                                             env.da.subtitle,
                                                             insights_dfs,
                                                             warning_messages,
+                                                            general_footnote,
                                                             parameters.arguments.max_prompt,
                                                             parameters.arguments.insight_prompt,
                                                             parameters.arguments.table_viz_layout)
@@ -141,7 +147,7 @@ def simple_metric_driver(parameters: SkillInput):
         export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
     )
 
-def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, insight_prompt, viz_layout):
+def render_layout(tables, title, subtitle, insights_dfs, general_footnote, warnings, max_prompt, insight_prompt, viz_layout):
     facts = []
     for i_df in insights_dfs:
         facts.append(i_df.to_dict(orient='records'))
@@ -155,17 +161,19 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, max_prompt, i
     viz_list = []
     export_data = {}
 
-    general_vars = {"headline": title if title else "Total",
-                    "sub_headline": subtitle if subtitle else "Driver Analysis",
-                    "hide_growth_warning": False if warnings else True,
-                    "exec_summary": insights if insights else "No Insights.",
-                    "warning": warnings}
+    general_vars = {
+        "headline": title if title else "Total",
+        "sub_headline": subtitle if subtitle else "Driver Analysis",
+        "hide_growth_warning": False if warnings else True,
+        "exec_summary": insights if insights else "No Insights.",
+        "warning": warnings,
+        "hide_footer": False if general_footnote else True,
+        "footer": f"*{general_footnote.strip()}" if general_footnote else "No additional info."
+    }
 
     for name, table in tables.items():
         export_data[name] = table
-        hide_footer = True
         table_vars = get_table_layout_vars(table, sparkline_col="sparkline")
-        table_vars["hide_footer"] = hide_footer
         rendered = wire_layout(json.loads(viz_layout), {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
 
