@@ -118,6 +118,10 @@ def simple_breakout(parameters: SkillInput):
     env.ba = OverproofBreakoutAnalysis.from_env(env=env, df_provider=df_provider)
     _ = env.ba.run_from_env()
 
+    general_footnote = ""
+    if df_provider.removed_nones:
+        general_footnote = "Many Items are not aligned with specific product details. These values are filtered from analysis and calculations to provide a more clear answer."
+
     tables = env.ba.get_display_tables()
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.ba.paramater_display_infomation.items()]
 
@@ -130,6 +134,7 @@ def simple_breakout(parameters: SkillInput):
                                                              insights_dfs,
                                                              env.ba.warning_message,
                                                              env.ba.footnotes,
+                                                             general_footnote,
                                                              parameters.arguments.max_prompt,
                                                              parameters.arguments.insight_prompt,
                                                              parameters.arguments.table_viz_layout)
@@ -144,16 +149,17 @@ def simple_breakout(parameters: SkillInput):
     )
 
 
-def find_footnote(footnotes, df):
+def find_footnote(footnotes, df, general_footnote=None):
     footnotes = footnotes or {}
-    dim_note = None
     for col in df.columns:
         if col in footnotes:
             dim_note = footnotes.get(col)
-            break
-    return dim_note
+            if general_footnote:
+                return dim_note + "\n" + general_footnote
+            return dim_note
+    return general_footnote
 
-def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes, max_prompt, insight_prompt, viz_layout):
+def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes, general_footnote, max_prompt, insight_prompt, viz_layout):
     facts = []
     for i_df in insights_dfs:
         facts.append(i_df.to_dict(orient='records'))
@@ -177,7 +183,7 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes, ma
 
     for name, table in tables.items():
         export_data[name] = table
-        dim_note = find_footnote(footnotes, table)
+        dim_note = find_footnote(footnotes, table, general_footnote)
         hide_footer = False if dim_note else True
         table_vars = get_table_layout_vars(table)
         table_vars["hide_footer"] = hide_footer

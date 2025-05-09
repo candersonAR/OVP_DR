@@ -42,6 +42,8 @@ class DataProvider(object):
         self.max_time_dimensions = [MenuColNames.MAX_TIME_MONTH_COL.value, MenuColNames.MAX_TIME_QUARTER_COL.value, MenuColNames.MAX_TIME_YEAR_COL.value]
         self.query_timing = 0
         self.query_count = 0
+
+        self.removed_nones = False
         
     def pull_data(
             self,
@@ -263,6 +265,13 @@ class DataProvider(object):
 
         if "date_column" in df.columns:
             df = df.sort_values(by=["date_column"], ascending=True)
+
+        # check if any breakout columns have values equal to 'None' and remove the rows with None values
+        none_value = "None"
+        none_breakout_cols = [col for col in breakouts if df[col].isin([none_value]).any()]
+        if none_breakout_cols:
+            self.removed_nones = True
+            df = df[~df[none_breakout_cols].isin([none_value]).all(axis=1)]
 
         return df
     
