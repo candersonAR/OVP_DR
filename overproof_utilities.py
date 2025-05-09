@@ -177,7 +177,7 @@ class OverproofSharedFn(SharedFn):
     def __init__(self, ds_meta={}):
         super().__init__(ds_meta)
     
-    # Overwritten get_formatted_num to handle the 'x' suffix
+    # Overwritten get_formatted_num to handle the 'x' suffix, ie ',.2x'
     def get_formatted_num(self, num: float | int | str, met_format: str, pretty_num=False, signed=False):
 
         def pretty_num_format(n: int | float, fmt: str):
@@ -248,7 +248,7 @@ class OverproofSharedFn(SharedFn):
             num = num * 100
             pretty_num = False
 
-        ## Overwrite the default behavior to handle the 'x' suffix
+        ## Overwrite the default behavior to handle the 'x' suffix, ie ',.2x'
         if 'x' in met_format:
             met_format = met_format.replace('x', 'f').replace(',', '').strip(' ') or ".2f"
             suffix = "x"
