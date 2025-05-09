@@ -118,10 +118,20 @@ def trend(parameters: SkillInput):
     env.trend_parameters["breakouts"] = updated_breakouts
     env.trend_parameters["dim_hierarchy"] = updated_dim_hierarchy
 
-    env.trend = OverproofTemporaryAdvanceTrend.from_env(env=env, df_provider=DataProvider())
+    df_provider = DataProvider()
+
+    env.trend = OverproofTemporaryAdvanceTrend.from_env(env=env, df_provider=df_provider)
     df = env.trend.run_from_env()
     param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.trend.paramater_display_infomation.items()]
     tables = [env.trend.display_dfs.get("Metrics Table")]
+
+    general_footnote = ""
+    if df_provider.removed_nones:
+        general_footnote = "Many Items are not aligned with specific product details. These values are filtered from analysis and calculations to provide a more clear answer."
+
+    if df_provider.removed_nones:
+        env.trend.notes.append("Some breakout dimensions had values equal to 'None'. These values have been removed from the analysis.")
+        env.trend.notes.append("Many Items are not aligned with specific product details. These values are filtered from analysis and calculations to provide a more clear answer.")
 
     insights_dfs = [env.trend.df_notes, env.trend.facts, env.trend.top_facts, env.trend.bottom_facts]
 
@@ -133,6 +143,7 @@ def trend(parameters: SkillInput):
                                                 env.trend.subtitle,
                                                 insights_dfs,
                                                 env.trend.warning_message,
+                                                general_footnote,
                                                 parameters.arguments.max_prompt,
                                                 parameters.arguments.insight_prompt,
                                                 parameters.arguments.table_viz_layout,
@@ -147,35 +158,55 @@ def trend(parameters: SkillInput):
         export_data=[ExportData(name="Metrics Table", data=tables[0])]
     )
 
-def render_layout(charts, tables, title, subtitle, insights_dfs, warnings, max_prompt, insight_prompt, table_viz_layout, chart_viz_layout):
-	facts = []
-	for i_df in insights_dfs:
-		facts.append(i_df.to_dict(orient='records'))
+def render_layout(
+    charts,
+    tables,
+    title,
+    subtitle,
+    insights_dfs,
+    warnings,
+    general_footnote,
+    max_prompt,
+    insight_prompt,
+    table_viz_layout,
+    chart_viz_layout,
+):
+    facts = []
+    for i_df in insights_dfs:
+        facts.append(i_df.to_dict(orient="records"))
 
-	insight_template = jinja2.Template(insight_prompt).render(**{"facts": facts})
-	max_response_prompt = jinja2.Template(max_prompt).render(**{"facts": facts})
+    insight_template = jinja2.Template(insight_prompt).render(**{"facts": facts})
+    max_response_prompt = jinja2.Template(max_prompt).render(**{"facts": facts})
 
-	# adding insights
-	ar_utils = ArUtils()
-	insights = ar_utils.get_llm_response(insight_template)
+    # adding insights
+    ar_utils = ArUtils()
+    insights = ar_utils.get_llm_response(insight_template)
 
-	tab_vars = {"headline": title if title else "Total",
-				"sub_headline": subtitle or "Trend Analysis",
-				"hide_growth_warning": False if warnings else True,
-				"exec_summary": insights if insights else "No Insight.",
-				"warning": warnings}
+    tab_vars = {
+        "headline": title if title else "Total",
+        "sub_headline": subtitle or "Trend Analysis",
+        "hide_growth_warning": False if warnings else True,
+        "exec_summary": insights if insights else "No Insight.",
+        "warning": warnings,
+    }
 
-	viz = []
-	for name, chart_vars in charts.items():
-		rendered = wire_layout(json.loads(chart_viz_layout), {**tab_vars, **chart_vars})
-		viz.append(SkillVisualization(title=name, layout=rendered))
+    viz = []
+    for name, chart_vars in charts.items():
+        chart_vars["hide_footer"] = False if general_footnote else True
+        chart_vars["footer"] = f"{chart_vars.get('footer', '')} {general_footnote.strip()}" if general_footnote else chart_vars.get("footer", "")
+        rendered = wire_layout(json.loads(chart_viz_layout), {**tab_vars, **chart_vars})
+        viz.append(SkillVisualization(title=name, layout=rendered))
 
+    table_vars = get_table_layout_vars(tables[0])
+    table_vars["hide_footer"] = False if general_footnote else True
+    table_vars["footer"] = (
+        f"*{general_footnote.strip()}" if general_footnote else "No additional info."
+    )
+    table = wire_layout(json.loads(table_viz_layout), {**tab_vars, **table_vars})
+    viz.append(SkillVisualization(title="Metrics Table", layout=table))
 
-	table_vars = get_table_layout_vars(tables[0])
-	table = wire_layout(json.loads(table_viz_layout), {**tab_vars, **table_vars})
-	viz.append(SkillVisualization(title="Metrics Table", layout=table))
+    return viz, insights, max_response_prompt
 
-	return viz, insights, max_response_prompt
 
 if __name__ == '__main__':
     skill_input: SkillInput = trend.create_input(arguments={

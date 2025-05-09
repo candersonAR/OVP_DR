@@ -306,6 +306,10 @@ def market_share_analysis(parameters: SkillInput):
     # print consolidated query timing
     df_provider.get_query_stats()
 
+    general_footnote = ""
+    if df_provider.removed_nones:
+        general_footnote = "Many Items are not aligned with specific product details. These values are filtered from analysis and calculations to provide a more clear answer."
+
     share_metric_label = env.msa.share_metric_label
     include_drivers = env.msa.include_drivers
     metric_drivers_labels = env.msa.metric_drivers_labels
@@ -320,6 +324,7 @@ def market_share_analysis(parameters: SkillInput):
                                                             env.msa.subtitle,
                                                             insights_dfs,
                                                             env.msa.warning_message,
+                                                            general_footnote,
                                                             parameters.arguments.max_prompt,
                                                             parameters.arguments.insight_prompt, 
                                                             parameters.arguments.table_viz_layout,
@@ -488,6 +493,7 @@ def render_layout(
         subtitle: str,
         insights_dfs: List[pd.DataFrame],
         warnings: str,
+        general_footnote: str,
         max_prompt: str,
         insight_prompt: str, 
         viz_layout: str,
@@ -520,15 +526,14 @@ def render_layout(
         "hide_growth_warning": False if warnings else True,
         "exec_summary": insights if insights else "No Insights.",
         "warning": warnings,
-        "hide_footer": True
+        "hide_footer": False if general_footnote else True,
+        "footer": f"*{general_footnote.strip()}" if general_footnote else "No additional info."
     }
 
     viz_layout = json.loads(viz_layout)
 
     for name, table in tables.items():
         export_data[name] = table
-        # dim_note = find_footnote(footnotes, table)
-        # hide_footer = False if dim_note else True
 
         table_vars = get_table_layout_vars_msa(
             name, 
@@ -543,7 +548,6 @@ def render_layout(
             followup_col="followup_nl",
             sparkline_col="sparkline"
         )
-        # table_vars["hide_footer"] = hide_footer
         rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
 
