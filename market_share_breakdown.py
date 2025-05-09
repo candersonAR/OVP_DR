@@ -7,10 +7,9 @@ import itertools
 from dateutil.relativedelta import relativedelta
 
 from ar_analytics.helpers.utils import SkillPlatform, TemplateParameterSetup, Connector, DimensionHierarchy, pull_data, \
-    SharedFn, \
     get_viz_header, old_get_date_label_str, NO_LIMIT_N, old_split_dim_and_metric_filters, old_get_filters_headline, \
     exit_with_status
-
+from overproof_utilities import OverproofSharedFn
 from temp_util import sparkline
 
 class MarketShareBreakdown:
@@ -31,7 +30,7 @@ class MarketShareBreakdown:
         self.pull_data_func = df_provider.pull_data if df_provider and hasattr(df_provider, "pull_data") else pull_data
 
         self.dim_hierarchy = DimensionHierarchy(dim_hierarchy)
-        self.helper = SharedFn()
+        self.helper = OverproofSharedFn()
         self.allowed_metrics = constrained_values.get("metric", [])
         self.allowed_breakouts = constrained_values.get("breakout", [])
         self.notes = []

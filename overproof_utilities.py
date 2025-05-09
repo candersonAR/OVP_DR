@@ -1,6 +1,7 @@
 import copy
 from enum import Enum
 from typing import List, Tuple
+import math
 
 from ar_analytics.helpers.utils import SharedFn
 
@@ -113,7 +114,7 @@ def map_dimension_hierarchy(filters: list[dict], breakouts: list[str], dim_hiera
     Product dimensions only are applicable for ingredients of cocktails.
     """
 
-    helper = SharedFn()
+    helper = OverproofSharedFn()
 
     hpd = has_product_dimension(filters, breakouts)
 
@@ -169,4 +170,94 @@ def map_msa_views(filters: list[dict], views=List[dict]) -> List[dict]:
             new_obj["drilldown"] = apply_mapping(new_obj["drilldown"])
         updated_view.append(new_obj)
 
-    return updated_view
+    return 
+
+class OverproofSharedFn(SharedFn):
+
+    def __init__(self, ds_meta={}):
+        super().__init__(ds_meta)
+    
+    # Overwritten get_formatted_num to handle the 'x' suffix, ie ',.2x'
+    def get_formatted_num(self, num: float | int | str, met_format: str, pretty_num=False, signed=False):
+
+        def pretty_num_format(n: int | float, fmt: str):
+            if math.isinf(n):
+                return "Infinity"
+            if math.isnan(n):
+                return "NaN"
+
+            if '$' in fmt:
+                return '$' + make_pretty_num(n)
+            if '%' in fmt:
+                return '{}%'.format(make_pretty_num(n * 100))
+
+            return make_pretty_num(n)
+
+        def make_pretty_num(n: int | float, is_int=False):
+            n = float(n)
+
+            if -10 < n < 10:
+                new_num = round(n, 2)
+                if is_int:
+                    new_num = int(new_num)
+                return str(new_num)
+
+            elif -100 < n < 100:
+                new_num = round(n, 2)
+                if is_int:
+                    new_num = int(new_num)
+                return str(new_num)
+
+            mill_names = ['', 'K', 'M', 'B', 'T']
+            mill_idx = max(0, min(len(mill_names) - 1, int(math.floor(0 if n == 0 else math.log10(abs(n)) / 3))))
+
+            return '{:.1f}{}'.format(n / 10 ** (3 * mill_idx), mill_names[mill_idx])
+
+        # convert to float if string, else return as is
+        if isinstance(num, str):
+            try:
+                num = float(num)
+            except:
+                return num
+
+        if not met_format:
+            met_format = ",.2f"
+
+        if "," in met_format:
+            prefix, met_format = met_format.split(",")
+            met_format = "," + met_format
+        else:
+            prefix = ""
+
+        if num < 0:
+            sign = "-"
+        elif signed and num > 0:
+            sign = "+"
+        else:
+            sign = ""
+
+        suffix = ""
+        if "bps" in met_format:
+            met_format = met_format.replace("bps", "f").replace(",", "").strip(' ') or ".0f"
+            suffix = " bps"
+            num = num * 100 * 100
+            pretty_num = False
+        if "pp" in met_format:
+            met_format = met_format.replace("pp", "f").replace(",", "").strip(' ') or ".2f"
+            suffix = " pp"
+            num = num * 100
+            pretty_num = False
+
+        ## Overwrite the default behavior to handle the 'x' suffix, ie ',.2x'
+        if 'x' in met_format:
+            met_format = met_format.replace('x', 'f').replace(',', '').strip(' ') or ".2f"
+            suffix = "x"
+            pretty_num = False
+        ##
+
+        if not pretty_num:
+            fmt_num = f"{sign}{prefix}{abs(num):{met_format}}{suffix}"
+        else:
+            fmt_num = f"{sign}{prefix}{pretty_num_format(abs(num), met_format)}{suffix}"
+
+        return fmt_num

@@ -6,7 +6,8 @@ from skill_framework.preview import preview_skill
 from skill_framework.skills import ExportData
 from skill_framework.layouts import wire_layout
 
-from ar_analytics import BreakoutAnalysis, BreakoutAnalysisTemplateParameterSetup, ArUtils
+from ar_analytics import BreakoutAnalysisTemplateParameterSetup, ArUtils
+from overproof_dimension_breakout import OverproofBreakoutAnalysis
 from ar_analytics.defaults import dimension_breakout_config, default_table_layout, get_table_layout_vars
 from overproof_data_provider import DataProvider
 
@@ -114,7 +115,7 @@ def simple_breakout(parameters: SkillInput):
 
     df_provider = DataProvider()
 
-    env.ba = BreakoutAnalysis.from_env(env=env, df_provider=df_provider)
+    env.ba = OverproofBreakoutAnalysis.from_env(env=env, df_provider=df_provider)
     _ = env.ba.run_from_env()
 
     general_footnote = ""
