@@ -170,7 +170,7 @@ def map_msa_views(filters: list[dict], views=List[dict]) -> List[dict]:
             new_obj["drilldown"] = apply_mapping(new_obj["drilldown"])
         updated_view.append(new_obj)
 
-    return 
+    return updated_view
 
 class OverproofSharedFn(SharedFn):
 
