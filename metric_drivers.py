@@ -7,7 +7,8 @@ from skill_framework.preview import preview_skill
 from skill_framework.skills import ExportData
 from skill_framework.layouts import wire_layout
 
-from ar_analytics import DriverAnalysis, DriverAnalysisTemplateParameterSetup, ArUtils
+from ar_analytics import DriverAnalysisTemplateParameterSetup, ArUtils
+from overproof_driver_analysis import OverproofDriverAnalysis
 from overproof_utilities import map_cocktails
 from ar_analytics.defaults import metric_driver_analysis_config, default_table_layout, get_table_layout_vars
 from overproof_data_provider import DataProvider
@@ -107,7 +108,8 @@ def simple_metric_driver(parameters: SkillInput):
     env.driver_analysis_parameters["dim_hierarchy"] = updated_dim_hierarchy
     env.driver_analysis_parameters["include_sparklines"] = False
     
-    env.da = DriverAnalysis.from_env(env=env, df_provider=DataProvider())
+    df_provider = DataProvider()
+    env.da = OverproofDriverAnalysis.from_env(env=env, df_provider=df_provider)
     _ = env.da.run_from_env()
 
     results = env.da.get_display_tables()
