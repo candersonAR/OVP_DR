@@ -13,8 +13,8 @@ from skill_framework.skills import ExportData
 from skill_framework.layouts import wire_layout
 
 # from ar_analytics import MarketShareBreakdown, MSBTemplateParameterSetup, ArUtils
-from ar_analytics import ArUtils
-from market_share_breakdown import MarketShareBreakdown, MSBTemplateParameterSetup
+from ar_analytics import ArUtils, MSBTemplateParameterSetup
+from market_share_breakdown import MarketShareBreakdown
 from ar_analytics.defaults import market_share_analysis_config, default_table_layout, get_table_layout_vars
 
 import jinja2
