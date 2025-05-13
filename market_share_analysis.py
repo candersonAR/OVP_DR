@@ -53,7 +53,11 @@ DEFAULT_GLOBAL_VIEW = """
     "dim": "supplier_name",
     "type": "share",
     "exclude_in_mkt_size": true,
-    "tab_label": "Supplier"
+    "tab_label": "Supplier", 
+    "drilldown": {
+         "dim": "brand_name",
+         "type": "contribution"
+      }
   },
   {
     "dim": "cocktail_group",
@@ -68,6 +72,16 @@ DEFAULT_GLOBAL_VIEW = """
     "tab_label": "Category",
     "drilldown": {
          "dim": "brand_name",
+         "type": "contribution"
+      }
+  },
+  {
+    "dim": "product_category_family_name",
+    "type": "contribution",
+    "exclude_in_mkt_size": true,
+    "tab_label": "Product Family",
+    "drilldown": {
+         "dim": "product_category_name",
          "type": "contribution"
       }
   }
@@ -88,20 +102,20 @@ DEFAULT_GLOBAL_VIEW = """
 DEFAULT_MARKET_VIEW = """
 [
   {
-    "dim": "product_category_name",
+    "dim": "cocktail_style",
     "type": "share",
     "exclude_in_mkt_size": true,
-    "tab_label": "Category",
+    "tab_label": "Cocktail",
     "drilldown": {
-         "dim": "brand_name",
-         "type": "contribution"
+         "dim": "cocktail_group",
+         "type": "share"
       }
   },
   {
-    "dim": "cocktail_group",
+    "dim": "state_name",
     "type": "share",
     "exclude_in_mkt_size": true,
-    "tab_label": "Cocktail"
+    "tab_label": "State"
   }
 ]
 """
