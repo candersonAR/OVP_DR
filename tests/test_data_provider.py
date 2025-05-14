@@ -14,8 +14,12 @@ class TestPullData:
 
     filter__max_time_date__Q1_2024 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2024-01-01' AND '2024-03-31'"}
     filter__max_time_date__2024 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2024-01-01' AND '2024-12-31'"}
+    filter__max_time_date__jan_2025 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2025-01-01' AND '2025-01-31'"}
     filter__brand_name__papas_pilar = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "papa's pilar"}
+    filter__brand_name__stiegl = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "stiegl"}
+    filter__brand_name__erdinger = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "erdinger"}
     filter__ingredient_of_cocktail_group__daiquiri = {"col": MenuColNames.INGREDIENT_OF_COCKTAIL_GROUP_COL.value, "op": "=", "val": "daiquiri"}
+    filter__country__canada = {"col": MenuColNames.COUNTRY_CODE_COL.value, "op": "=", "val": "can"}
 
     pull_data_function = DataProvider().pull_data
 
@@ -157,3 +161,36 @@ class TestPullData:
         # TODO: Validate this value
         uplift_value = df[self.metric__sales_uplift].sum()
         self.assert_value_between_threshold(uplift_value, 0.549725604285, 0.001)
+
+    def test_sales_uplift_by_brand_for_canada_in_jan_2025(self):
+
+        df = self.pull_data_function(
+            metrics = self._get_metrics([self.metric__sales_uplift]),
+            breakouts = [self.breakout__brand_name],
+            filters = [self.filter__max_time_date__jan_2025, self.filter__country__canada]
+        )
+
+        assert self.metric__sales_uplift in df.columns
+        assert self.breakout__brand_name in df.columns
+
+    def test_sales_uplift_by_for_canada_stiegl_in_jan_2025(self):
+
+        df = self.pull_data_function(
+            metrics = self._get_metrics([self.metric__sales_uplift]),
+            filters = [self.filter__brand_name__stiegl, self.filter__max_time_date__jan_2025, self.filter__country__canada]
+        )
+
+        assert self.metric__sales_uplift in df.columns
+        assert self.breakout__brand_name in df.columns
+
+    def test_sales_uplift_by_brand_for_canada_erdinger_in_jan_2025(self):
+        df = self.pull_data_function(
+            metrics = self._get_metrics([self.metric__sales_uplift]),
+            filters = [self.filter__brand_name__erdinger, self.filter__max_time_date__jan_2025, self.filter__country__canada]
+        )
+
+        assert self.metric__sales_uplift in df.columns
+        assert self.breakout__brand_name in df.columns
+
+        
+        

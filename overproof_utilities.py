@@ -40,7 +40,10 @@ class MenuColNames(Enum):
     PRODUCT_SUBCATEGORY_NAME_COL = "product_subcategory_name"
     SUPPLIER_NAME_COL = "supplier_name"
 
+    COUNTRY_CODE_COL = "country_code"
+
     VENUE_ID_COL = "venue_id"
+    VENUE_NAME_COL = "venue__name"
     PRODUCT_ID_COL = "product_id"
 
     MAX_TIME_DATE_COL = "max_time_date"
