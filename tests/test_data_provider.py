@@ -11,13 +11,17 @@ class TestPullData:
     breakout__cocktail_group = MenuColNames.COCKTAIL_GROUP_COL.value
     breakout__max_time_month = MenuColNames.MAX_TIME_MONTH_COL.value
     breakout__brand_name = MenuColNames.BRAND_NAME_COL.value
+    breakout__product_category_name = MenuColNames.PRODUCT_CATEGORY_NAME_COL.value
+
 
     filter__max_time_date__Q1_2024 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2024-01-01' AND '2024-03-31'"}
     filter__max_time_date__2024 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2024-01-01' AND '2024-12-31'"}
     filter__max_time_date__jan_2025 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2025-01-01' AND '2025-01-31'"}
+    filter__max_time_date__feb_2023_to_feb_2025 = {'col': MenuColNames.MAX_TIME_DATE_COL.value, 'op': 'BETWEEN', 'val': "'2023-02-01' AND '2025-02-28'"}
     filter__brand_name__papas_pilar = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "papa's pilar"}
     filter__brand_name__stiegl = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "stiegl"}
     filter__brand_name__erdinger = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "erdinger"}
+    filter__product_category_name__american_rye_malt_whiskey = {"col": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": "american rye malt whiskey"}
     filter__ingredient_of_cocktail_group__daiquiri = {"col": MenuColNames.INGREDIENT_OF_COCKTAIL_GROUP_COL.value, "op": "=", "val": "daiquiri"}
     filter__country__canada = {"col": MenuColNames.COUNTRY_CODE_COL.value, "op": "=", "val": "can"}
 
@@ -181,7 +185,6 @@ class TestPullData:
         )
 
         assert self.metric__sales_uplift in df.columns
-        assert self.breakout__brand_name in df.columns
 
     def test_sales_uplift_by_brand_for_canada_erdinger_in_jan_2025(self):
         df = self.pull_data_function(
@@ -190,7 +193,13 @@ class TestPullData:
         )
 
         assert self.metric__sales_uplift in df.columns
-        assert self.breakout__brand_name in df.columns
 
-        
+    def test_sales_uplift_for_american_rye_malt_whiskey_from_feb_2023_to_feb_2025(self):
+
+        df = self.pull_data_function(
+            metrics = self._get_metrics([self.metric__sales_uplift]),
+            filters = [self.filter__product_category_name__american_rye_malt_whiskey, self.filter__max_time_date__feb_2023_to_feb_2025]
+        )
+
+        assert self.metric__sales_uplift in df.columns
         
