@@ -12,9 +12,8 @@ from skill_framework.preview import preview_skill
 from skill_framework.skills import ExportData
 from skill_framework.layouts import wire_layout
 
-# from ar_analytics import MarketShareBreakdown, MSBTemplateParameterSetup, ArUtils
 from ar_analytics import ArUtils, MSBTemplateParameterSetup
-from market_share_breakdown import MarketShareBreakdown
+from market_share_breakdown import MarketShareBreakdown, OverproofDataProvider
 from ar_analytics.defaults import market_share_analysis_config, default_table_layout, get_table_layout_vars
 
 import jinja2
@@ -102,7 +101,7 @@ DEFAULT_GLOBAL_VIEW = """
 DEFAULT_MARKET_VIEW = """
 [
   {
-    "dim": "cocktail_style",
+    "dim": "cocktail__style",
     "type": "share",
     "exclude_in_mkt_size": true,
     "tab_label": "Cocktail",
@@ -302,7 +301,7 @@ def market_share_analysis(parameters: SkillInput):
     env.msb_parameters["query_filters"] = updated_filters
     env.msb_parameters["dim_hierarchy"] = updated_dim_hierarchy
 
-    env.msa = MarketShareBreakdown(
+    env.msa = OverproofDataProvider(
         sql_exec=env.msb_parameters["con"],
         dim_hierarchy=env.msb_parameters["dim_hierarchy"],
         constrained_values=env.msb_parameters["constrained_values"],
@@ -571,29 +570,24 @@ if __name__ == '__main__':
     skill_input: SkillInput = market_share_analysis.create_input(
         arguments=
         {
-            "growth_type": "Y/Y",
-            "periods": [
-                "jul 2024",
-                "aug 2024",
-                "sep 2024"
-            ],
             "other_filters": [
                 {
                     "val": [
-                        "non-classic"
+                        "texas"
                     ],
-                    "dim": "cocktail__style",
+                    "dim": "state_name",
                     "op": "="
                 },
                 {
                     "val": [
-                        "new york"
+                        "suntory global spirits"
                     ],
-                    "dim": "state_name",
+                    "dim": "supplier_name",
                     "op": "="
                 }
             ],
-            "metric": "menu_placements_share"
+            "metric": "menu_placements",
+            "periods": [ "q3 2024"]
         }
 )
     out = market_share_analysis(skill_input)
