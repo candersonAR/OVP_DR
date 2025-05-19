@@ -37,10 +37,11 @@ class MSACONFIG:
     subject_metric_config: Optional[str] = None
 
 DEFAULT_GLOBAL_VIEW = """
+
 [
   {
     "dim": "state_name",
-    "type": "share",
+    "type": "contribution",
     "exclude_in_mkt_size": false,
     "tab_label": "State",
     "drilldown": {
@@ -85,6 +86,7 @@ DEFAULT_GLOBAL_VIEW = """
       }
   }
 ]
+
 """
 
 # DEFAULT_GLOBAL_VIEW = """
@@ -101,7 +103,7 @@ DEFAULT_GLOBAL_VIEW = """
 DEFAULT_MARKET_VIEW = """
 [
   {
-    "dim": "cocktail__style",
+    "dim": "cocktail_style",
     "type": "share",
     "exclude_in_mkt_size": true,
     "tab_label": "Cocktail",
@@ -121,11 +123,12 @@ DEFAULT_MARKET_VIEW = """
 
 DEFAULT_INCLUDE_DRIVERS = True
 
-DEFAULT_MARKET_COLS = """["state_name"]"""
+DEFAULT_MARKET_COLS = """["cocktail_style","cocktail_group"]"""
 
 DEFAULT_IMPACT_CALCS = """"""
 
 DEFAULT_DECOMPOSITION_DISPLAY_CONFIG = """
+
 {
     "Impact on Share": {
         "menu_placements_share": [
@@ -138,6 +141,7 @@ DEFAULT_DECOMPOSITION_DISPLAY_CONFIG = """
         ]
     }
 }
+
 """
 
 # DEFAULT_SUBJECT_METRIC_CONFIG = """
@@ -570,24 +574,17 @@ if __name__ == '__main__':
     skill_input: SkillInput = market_share_analysis.create_input(
         arguments=
         {
+            "growth_type": "Y/Y",
             "other_filters": [
                 {
                     "val": [
-                        "texas"
+                        "patrón"
                     ],
-                    "dim": "state_name",
-                    "op": "="
-                },
-                {
-                    "val": [
-                        "suntory global spirits"
-                    ],
-                    "dim": "supplier_name",
+                    "dim": "brand_name",
                     "op": "="
                 }
             ],
-            "metric": "menu_placements",
-            "periods": [ "q3 2024"]
+            "periods": ["last quarter"]
         }
 )
     out = market_share_analysis(skill_input)

@@ -109,7 +109,7 @@ class OverproofDataProvider(MarketShareBreakdown):
         # if breakout is subject_dim, then get market sizes for each metric without breakout
         if breakout == self.subject_dim:
             # set class variable for subject market size data for contribution
-            print("Check 6")
+
             #428507 vs 86197
             self.df_market_curr = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.curr_period], subject_breakout=breakout)
             self.check_row_limit(self.df_market_curr)
@@ -117,7 +117,6 @@ class OverproofDataProvider(MarketShareBreakdown):
             self.df_market_curr[driver_cols] = self.df_market_curr[driver_cols].astype(float)
             self.df_market_curr.rename(columns=market_rename_dict, inplace=True)
 
-            print("Check 7")
             self.df_market_comp = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.comp_period], subject_breakout=breakout)
             self.check_row_limit(self.df_market_comp)
 
@@ -126,29 +125,28 @@ class OverproofDataProvider(MarketShareBreakdown):
 
         else:
             # get current market size data
-            print("Check 8")
-            df_market_curr = self.calculate_market_share_denominator(metrics=driver_metrics, breakouts=[breakout],
-                                       filters=market_filters + [self.curr_period])
-            self.check_row_limit(df_market_curr)
+            # self.df_market_curr = self.pull_data_func(metrics=driver_metrics, breakouts=[breakout],
+            #                            filters=market_filters + [self.curr_period])
 
-            df_market_curr[driver_cols] = df_market_curr[driver_cols].astype(float)
-            df_market_curr.rename(columns=market_rename_dict, inplace=True)
+            self.df_market_curr = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.curr_period], subject_breakout=breakout)
+            self.check_row_limit(self.df_market_curr)
+
+            self.df_market_curr[driver_cols] = self.df_market_curr[driver_cols].astype(float)
+            self.df_market_curr.rename(columns=market_rename_dict, inplace=True)
 
             # get comp market size data
-            print("Check 9")
-            df_market_comp = self.calculate_market_share_denominator(metrics=driver_metrics, breakouts=[breakout],
-                                       filters=market_filters + [self.comp_period])
-            self.check_row_limit(df_market_comp)
+            self.df_market_comp = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.comp_period], subject_breakout=breakout)
 
-            df_market_comp[driver_cols] = df_market_comp[driver_cols].astype(float)
-            df_market_comp.rename(columns=market_rename_dict, inplace=True)
+            self.check_row_limit(self.df_market_comp)
+
+            self.df_market_comp[driver_cols] = self.df_market_comp[driver_cols].astype(float)
+            self.df_market_comp.rename(columns=market_rename_dict, inplace=True)
 
         query_breakouts = [breakout]
         if parent_breakout:
             query_breakouts.append(parent_breakout)
 
         # get current driver data
-        print("Check 10")
         df_drivers_curr = self.pull_data_func(metrics=driver_metrics,
                                     filters=query_filters + dim_member_filters + [self.curr_period],
                                     breakouts=query_breakouts)
@@ -157,19 +155,18 @@ class OverproofDataProvider(MarketShareBreakdown):
         df_drivers_curr[driver_cols] = df_drivers_curr[driver_cols].astype(float)
         df_drivers_curr.rename(columns=drivers_rename_dict, inplace=True)
         # merge in market size and calculate share
-        if breakout == self.subject_dim or share_type == 'contribution':
+        if breakout == self.subject_dim or share_type in ['contribution', 'share']:
             for metric in driver_metrics:
                 df_drivers_curr[metric['name'] + '_market_size'] = \
                 self.df_market_curr[metric['name'] + '_market_size'].values[0]
         else:
-            df_drivers_curr = pd.merge(df_drivers_curr, df_market_curr, on='dim_member', how='inner')
+            df_drivers_curr = pd.merge(df_drivers_curr, self.df_market_curr, on='dim_member', how='inner')
 
         for metric in driver_metrics:
             df_drivers_curr[metric['name'] + '_share'] = df_drivers_curr[metric['name']].div(
                 df_drivers_curr[metric['name'] + '_market_size'], fill_value=0)
 
         # get comp driver data
-        print("Check 11")
         df_drivers_comp = self.pull_data_func(metrics=driver_metrics,
                                     filters=query_filters + dim_member_filters + [self.comp_period],
                                     breakouts=query_breakouts)
@@ -178,12 +175,12 @@ class OverproofDataProvider(MarketShareBreakdown):
         df_drivers_comp[driver_cols] = df_drivers_comp[driver_cols].astype(float)
         df_drivers_comp.rename(columns=drivers_rename_dict, inplace=True)
         # merge in market size and calculate share
-        if breakout == self.subject_dim or share_type == 'contribution':
+        if breakout == self.subject_dim or share_type in ['contribution', 'share']:
             for metric in driver_metrics:
                 df_drivers_comp[metric['name'] + '_market_size'] = \
                 self.df_market_comp[metric['name'] + '_market_size'].values[0]
         else:
-            df_drivers_comp = pd.merge(df_drivers_comp, df_market_comp, on='dim_member', how='outer')
+            df_drivers_comp = pd.merge(df_drivers_comp, self.df_market_comp, on='dim_member', how='outer')
         for metric in driver_metrics:
             df_drivers_comp[metric['name'] + '_share'] = df_drivers_comp[metric['name']].div(
                 df_drivers_comp[metric['name'] + '_market_size'], fill_value=0)
@@ -492,10 +489,6 @@ class OverproofDataProvider(MarketShareBreakdown):
 
         # get subject df
         self.dimensions_analyzed.append(self.subject_dim)
-        # subject_df = self.pull_data_func(metrics=[self.metric], filters=market_filters + [self.trend_period],
-        #                        breakouts=[self.subject_dim, self.period_col],
-        #                        order_cols=[{"col": self.period_col, "direction": "ASC"}])
-
 
         subject_df = self.get_drivers_df(table, self.subject_dim, [self.metric], market_filters, [])
         subject_df = self.adding_metric_columns(df=subject_df, main_metric=self.metric, dim=self.subject_dim, top_n=top_n)
@@ -505,9 +498,6 @@ class OverproofDataProvider(MarketShareBreakdown):
             exit_with_status(
                 f"No data found for {self.subject_dim_label} {self.subject_member}{dim_filter_str}. Ask user to try a different set of filters.")
 
-        # subject_df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
-        # subject_df['metric'] = subject_df['metric'].astype(float)
-        # subject_df = self.transform_subject_df(subject_df, self.subject_dim, top_n, market_filters)
 
         subject_df['level'] = 0
         subject_df['parent_dim'] = None
@@ -552,23 +542,6 @@ class OverproofDataProvider(MarketShareBreakdown):
                 if self.is_agg_metrics:
                     breakout_filters.append(self.subject_filter)
 
-                print("Check 2")
-                # breakout_df = self.pull_data_func(metrics=[self.metric], filters=breakout_filters,
-                #                         breakouts=[breakout_dim, self.subject_dim, self.period_col],
-                #                         order_cols=[{"col": self.period_col, "direction": 'ASC'}])
-                # self.check_row_limit(breakout_df)
-                #
-                # breakout_df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
-                # breakout_df['metric'] = breakout_df['metric'].astype(float)
-                #
-                # total_market_filters = market_filters
-                # if self.is_agg_metrics:
-                #     total_market_filters.append(self.subject_filter)
-                #
-                # df = self.transform_breakout_df(breakout_df, breakout_dim, total_market_filters, top_n=top_n)
-                #
-                # dim_member_filters = self.get_dim_member_filters(df, breakout_dim)
-
                 df = self.get_drivers_df(table, breakout_dim, [self.metric], query_filters,
                                                      [])
                 df = self.adding_metric_columns(df=df, main_metric=self.metric, dim=breakout_dim, top_n=top_n)
@@ -604,23 +577,7 @@ class OverproofDataProvider(MarketShareBreakdown):
                 df = self.adding_metric_columns(df=df, main_metric=self.metric, dim=breakout_dim, top_n=top_n)
                 self.check_row_limit(df)
 
-                print("Check 3")
-                # df = self.pull_data_func(metrics=[self.metric], filters=query_filters + [self.trend_period],
-                #                breakouts=[breakout_dim, self.period_col],
-                #                order_cols=[{"col": self.period_col, "direction": 'ASC'}])
-
-                # df.rename(columns={self.metric['name']: 'metric'}, inplace=True)
-                # df['metric'] = df['metric'].astype(float)
-                #
-                # # transform contribution df
-                # df = self.transform_contribution_df(df, breakout_dim, top_n=top_n)
-
                 dim_member_filters = self.get_dim_member_filters(df, breakout_dim)
-
-                # if self.include_drivers:
-                #     drivers_df = self.get_drivers_df(table, breakout_dim, query_metrics, query_filters,
-                #                                      dim_member_filters, share_type='contribution')
-                #     df = pd.merge(df, drivers_df, on='dim_member', how='left')
 
                 df['level'] = breakout['level']
                 df['parent_dim'] = None
@@ -644,7 +601,7 @@ class OverproofDataProvider(MarketShareBreakdown):
 
                     # pull data for drilldown dim using query_filters + top dim_members of parent
                     self.dimensions_analyzed.append(drilldown_dim)
-                    print("Check 4")
+
                     drilldown_df = self.pull_data_func(metrics=[self.metric],
                                              filters=query_filters + dim_member_filters + [self.trend_period],
                                              breakouts=[breakout_dim, drilldown_dim, self.period_col],
