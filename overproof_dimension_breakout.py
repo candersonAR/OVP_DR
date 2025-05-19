@@ -102,7 +102,7 @@ class OverproofBreakoutAnalysis(BreakoutAnalysis):
                     self.sort_by_denom.append(breakout)
                     subject_filters = [f for f in breakout_filters if
                           not is_filter_token(f['val']) and f['col'] in self.dim_hier.owner_cols]
-                    subject_breakout = subject_filters[0]['dim'] if subject_filters else None
+                    subject_breakout = subject_filters[0]['col'] if subject_filters else None
 
 
                 additional_filters = table_specific_filters.get(breakout, table_specific_filters.get('default', []))
