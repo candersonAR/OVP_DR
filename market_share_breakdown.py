@@ -95,7 +95,7 @@ class OverproofDataProvider(MarketShareBreakdown):
         return subject_dim, subject_member, subject_filter, query_filters
 
     def get_drivers_df(self, table, breakout, driver_metrics, query_filters, dim_member_filters, share_type='share',
-                       parent_breakout=None):
+                       parent_breakout=None, subject_dim=None):
 
         driver_cols = [m['name'] for m in driver_metrics]
         market_rename_dict = {breakout: 'dim_member'}
@@ -128,14 +128,14 @@ class OverproofDataProvider(MarketShareBreakdown):
             # self.df_market_curr = self.pull_data_func(metrics=driver_metrics, breakouts=[breakout],
             #                            filters=market_filters + [self.curr_period])
 
-            self.df_market_curr = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.curr_period], subject_breakout=breakout)
+            self.df_market_curr = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.curr_period], breakouts=[breakout], subject_breakout=subject_dim)
             self.check_row_limit(self.df_market_curr)
 
             self.df_market_curr[driver_cols] = self.df_market_curr[driver_cols].astype(float)
             self.df_market_curr.rename(columns=market_rename_dict, inplace=True)
 
             # get comp market size data
-            self.df_market_comp = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.comp_period], subject_breakout=breakout)
+            self.df_market_comp = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.comp_period], breakouts=[breakout], subject_breakout=subject_dim)
 
             self.check_row_limit(self.df_market_comp)
 
@@ -155,7 +155,7 @@ class OverproofDataProvider(MarketShareBreakdown):
         df_drivers_curr[driver_cols] = df_drivers_curr[driver_cols].astype(float)
         df_drivers_curr.rename(columns=drivers_rename_dict, inplace=True)
         # merge in market size and calculate share
-        if breakout == self.subject_dim or share_type in ['contribution', 'share']:
+        if breakout == self.subject_dim or share_type in ['contribution']:
             for metric in driver_metrics:
                 df_drivers_curr[metric['name'] + '_market_size'] = \
                 self.df_market_curr[metric['name'] + '_market_size'].values[0]
@@ -175,7 +175,7 @@ class OverproofDataProvider(MarketShareBreakdown):
         df_drivers_comp[driver_cols] = df_drivers_comp[driver_cols].astype(float)
         df_drivers_comp.rename(columns=drivers_rename_dict, inplace=True)
         # merge in market size and calculate share
-        if breakout == self.subject_dim or share_type in ['contribution', 'share']:
+        if breakout == self.subject_dim or share_type in ['contribution']:
             for metric in driver_metrics:
                 df_drivers_comp[metric['name'] + '_market_size'] = \
                 self.df_market_comp[metric['name'] + '_market_size'].values[0]
@@ -573,7 +573,7 @@ class OverproofDataProvider(MarketShareBreakdown):
 
                 # pull data using query_filters
                 df = self.get_drivers_df(table, breakout_dim, [self.metric], query_filters,
-                                         [])
+                                         [], subject_dim=self.subject_dim)
                 df = self.adding_metric_columns(df=df, main_metric=self.metric, dim=breakout_dim, top_n=top_n)
                 self.check_row_limit(df)
 
