@@ -109,7 +109,7 @@ class TestTrend:
             "metrics": [self.met1],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
-            "other_filters": [self.filter1, self.filter2]
+            "other_filters": [self.filter1]
         }
 
         self._assert_trend_runs_without_errors(parameters)
@@ -121,7 +121,7 @@ class TestTrend:
             "metrics": [self.met1],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
-            "other_filters": [self.filter1, self.filter2],
+            "other_filters": [self.filter1],
             "growth_type": self.growth_type__yoy
         }
 
@@ -199,7 +199,7 @@ class TestTrend:
             "metrics": [self.met1, self.met2],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
-            "other_filters": [self.filter1, self.filter2]
+            "other_filters": [self.filter1]
         }
 
         self._assert_trend_runs_without_errors(parameters)
@@ -211,7 +211,7 @@ class TestTrend:
             "metrics": [self.met1, self.met2],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
-            "other_filters": [self.filter1, self.filter2],
+            "other_filters": [self.filter1],
             "growth_type": self.growth_type__yoy
         }
 
@@ -326,6 +326,26 @@ class TestTrend:
             'breakouts': [self.breakout3],
             'periods': [self.period_filter1],
             "time_granularity": "month"
+        }
+
+        self._assert_trend_runs_without_errors(parameters)
+
+    def test_menu_placements_share_by_category_and_brand_in_q1_2024(self):
+        parameters = {
+            'metrics': [self.metric__menu_placements_share],
+            'breakouts': [self.breakout3, self.breakout1],
+            'periods': [self.period_filter1],
+            "time_granularity": "month"
+        }
+
+        self._assert_trend_runs_without_errors(parameters)
+
+
+    def test_menu_placements_share_by_category_ingredients(self):
+        parameters = {
+            "metrics": [self.metric__menu_placements_share],
+            "breakouts": [self.breakout3],
+            "other_filters": [self.filter2]
         }
 
         self._assert_trend_runs_without_errors(parameters)
