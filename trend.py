@@ -130,26 +130,19 @@ class OverproofDataProvider(AdvanceTrend):
                 # check if any of the filters are in owner hierarchy, remove them from market_filters
                 market_filters = [f for f in filters if f['col'] not in self.dim_hier.owner_cols]
 
+                subject_breakout = dim
                 # check if filters are the same for numerator and denominator
                 # if it's the same then calculate contribution to total
-                if market_filters == filters:
-                    groupby = []
-                    dim_join_cols = join_cols
-                    self.contributions.append(breakout_label)
-                # only breakout the denominator if it is not an owner column
-                elif dim in self.dim_hier.owner_cols:
-                    groupby = []
-                    dim_join_cols = join_cols
+                dim_join_cols = join_cols
+                if market_filters == filters or dim in self.dim_hier.owner_cols:
                     self.contributions.append(breakout_label)
                 else:
-                    groupby = [dim]
                     self.share_within.append(breakout_label)
-                    dim_join_cols = join_cols + ['dim', 'dim_val']
-                    # get the dim_vals needed for denominator
-                    dim_vals = list(base_dim_df['dim_val'].unique())
-                    # dim_required_vals[dim] = [d.lower() for d in dim_vals]
+                    subject_filters = [f for f in filters if
+                                       not is_filter_token(f['val']) and f['col'] in self.dim_hier.owner_cols]
+                    subject_breakout = subject_filters[0]['col'] if subject_filters else None
 
-                dim_market_df = self.get_trend_data(share_metric_props, [], market_filters + additional_filters, top_n, top_n_direction, dim_required_vals, is_share=True, subject_breakout=dim)
+                dim_market_df = self.get_trend_data(share_metric_props, [], market_filters + additional_filters, top_n, top_n_direction, dim_required_vals, is_share=True, subject_breakout=subject_breakout)
 
                 dim_market_df['metric'] = dim_market_df['metric'].apply(lambda x: rename_dict.get(x, x))
                 dim_market_df = dim_market_df.rename(columns={'value': 'market_value'})
