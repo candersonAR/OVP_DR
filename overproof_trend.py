@@ -4,66 +4,13 @@ from collections import defaultdict
 import pandas as pd
 from ar_analytics.trend import AdvanceTrend, GROWTH, DELTA
 from ar_analytics.helpers.utils import Connector, is_using_max_sql_gen, exit_with_status, is_filter_token
-from overproof_utilities import MenuColNames, OverproofSharedFn
+from overproof_utilities import MenuColNames, OverproofSharedFn, calculate_market_share_denominator
 
 class OverproofTemporaryAdvanceTrend(AdvanceTrend):
     def __init__(self, table: str, sql_exec: Connector, time: dict, dim_hierarchy: dict = {}, constrained_values={}, max_num_charts=10, df_provider=None):
         super().__init__(table, sql_exec, time, dim_hierarchy, constrained_values, max_num_charts, df_provider)
         self.helper = OverproofSharedFn()
 
-
-    def check_count_metric(self, metric: dict) -> bool:
-        met_name = metric.get('name')
-        count_metrics = [MenuColNames.MENU_PLACEMENTS_METRIC.value, MenuColNames.VENUE_PLACEMENTS_METRIC.value]
-        return met_name in count_metrics
-
-    def calculate_market_share_denominator(
-            self,
-            metrics,
-            breakouts=[],
-            filters=[],
-            order_cols=None,
-            query_row_limit=None,
-            subject_breakout=None
-    ) -> pd.DataFrame:
-        '''
-        Calculate the denominator for the market share calculation.
-        Provides the normal denominator for non-count metrics.
-        Provides the sum of count metrics for the subject breakout as the denominator for count metrics.
-        '''
-
-        if subject_breakout:
-            non_count_metrics = [m for m in metrics if not self.check_count_metric(m)]
-            count_metrics = [m for m in metrics if self.check_count_metric(m)]
-        else:
-            non_count_metrics = metrics
-            count_metrics = []
-
-        non_count_df = pd.DataFrame()
-        count_df = pd.DataFrame()
-
-        if non_count_metrics:
-            non_count_df = self.pull_data_func(non_count_metrics, breakouts, filters, order_cols, query_row_limit)
-
-        if count_metrics:
-            # groupby dims + subject_breakout, then sum over everything except the subject_breakout
-            count_df = self.pull_data_func(count_metrics, breakouts + [subject_breakout], filters, order_cols,
-                                           query_row_limit)
-            if breakouts:
-                count_df = count_df.groupby(breakouts).sum().reset_index()
-            else:
-                count_df = count_df.groupby(lambda x: True).sum().reset_index(drop=True)
-
-        if not non_count_df.empty and not count_df.empty:
-            df = pd.merge(non_count_df, count_df, on=breakouts, how='inner')
-        elif non_count_df.empty and not count_df.empty:
-            df = count_df
-        elif not non_count_df.empty and count_df.empty:
-            df = non_count_df
-        else:
-            df = pd.DataFrame()
-
-        return df
 
     # Overwriting so that sales_uplift is considered a calculated metric
     # This will make it so pull_data is called to recalculate the total for sales uplift
@@ -281,7 +228,8 @@ class OverproofTemporaryAdvanceTrend(AdvanceTrend):
                                          order_cols=[{"col": f"max_time_{self.time_granularity}", "alias": "date_column", "direction": "ASC"}],
                                          query_row_limit=self.row_limit)
             else:
-                df = self.calculate_market_share_denominator(
+                df = calculate_market_share_denominator(
+                    pull_data_func = self.pull_data_func,
                     metrics=metrics,
                     breakouts=[f"max_time_{self.time_granularity}"],
                     filters=filters,

@@ -3,66 +3,13 @@ import numpy as np
 import time
 
 from ar_analytics.helpers.utils import get_viz_header, old_get_filters_headline, exit_with_status
-from overproof_utilities import OverproofSharedFn, MenuColNames
+from overproof_utilities import OverproofSharedFn, calculate_market_share_denominator
 from ar_analytics.market_share_breakdown import MarketShareBreakdown
 
 class OverproofDataProvider(MarketShareBreakdown):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.helper = OverproofSharedFn()
-
-    def check_count_metric(self, metric: dict) -> bool:
-        met_name = metric.get('name')
-        count_metrics = [MenuColNames.MENU_PLACEMENTS_METRIC.value, MenuColNames.VENUE_PLACEMENTS_METRIC.value]
-        return met_name in count_metrics
-
-    def calculate_market_share_denominator(
-            self,
-            metrics,
-            breakouts=[],
-            filters=[],
-            order_cols=None,
-            query_row_limit=None,
-            subject_breakout=None
-    ) -> pd.DataFrame:
-        '''
-        Calculate the denominator for the market share calculation.
-        Provides the normal denominator for non-count metrics.
-        Provides the sum of count metrics for the subject breakout as the denominator for count metrics.
-        '''
-
-        if subject_breakout:
-            non_count_metrics = [m for m in metrics if not self.check_count_metric(m)]
-            count_metrics = [m for m in metrics if self.check_count_metric(m)]
-        else:
-            non_count_metrics = metrics
-            count_metrics = []
-
-        non_count_df = pd.DataFrame()
-        count_df = pd.DataFrame()
-
-        if non_count_metrics:
-            non_count_df = self.pull_data_func(non_count_metrics, breakouts, filters, order_cols, query_row_limit)
-
-        if count_metrics:
-            # groupby dims + subject_breakout, then sum over everything except the subject_breakout
-            count_df = self.pull_data_func(count_metrics, breakouts + [subject_breakout], filters, order_cols,
-                                           query_row_limit)
-            if breakouts:
-                count_df = count_df.groupby(breakouts).sum().reset_index()
-            else:
-                count_df = count_df.groupby(lambda x: True).sum().reset_index(drop=True)
-
-        if not non_count_df.empty and not count_df.empty:
-            df = pd.merge(non_count_df, count_df, on=breakouts, how='inner')
-        elif non_count_df.empty and not count_df.empty:
-            df = count_df
-        elif not non_count_df.empty and count_df.empty:
-            df = non_count_df
-        else:
-            df = pd.DataFrame()
-
-        return df
 
     def process_subject_filter(self, query_filters):
 
@@ -111,13 +58,23 @@ class OverproofDataProvider(MarketShareBreakdown):
             # set class variable for subject market size data for contribution
 
             #428507 vs 86197
-            self.df_market_curr = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.curr_period], subject_breakout=breakout)
+            self.df_market_curr = calculate_market_share_denominator(
+                pull_data_func = self.pull_data_func,
+                metrics=driver_metrics,
+                filters=market_filters + [self.curr_period],
+                subject_breakout=breakout
+            )
             self.check_row_limit(self.df_market_curr)
 
             self.df_market_curr[driver_cols] = self.df_market_curr[driver_cols].astype(float)
             self.df_market_curr.rename(columns=market_rename_dict, inplace=True)
 
-            self.df_market_comp = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.comp_period], subject_breakout=breakout)
+            self.df_market_comp = calculate_market_share_denominator(
+                pull_data_func = self.pull_data_func,
+                metrics=driver_metrics,
+                filters=market_filters + [self.comp_period],
+                subject_breakout=breakout
+            )
             self.check_row_limit(self.df_market_comp)
 
             self.df_market_comp[driver_cols] = self.df_market_comp[driver_cols].astype(float)
@@ -128,14 +85,26 @@ class OverproofDataProvider(MarketShareBreakdown):
             # self.df_market_curr = self.pull_data_func(metrics=driver_metrics, breakouts=[breakout],
             #                            filters=market_filters + [self.curr_period])
 
-            self.df_market_curr = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.curr_period], breakouts=[breakout], subject_breakout=subject_dim)
+            self.df_market_curr = calculate_market_share_denominator(
+                pull_data_func = self.pull_data_func,
+                metrics=driver_metrics,
+                filters=market_filters + [self.curr_period],
+                breakouts=[breakout],
+                subject_breakout=subject_dim
+            )
             self.check_row_limit(self.df_market_curr)
 
             self.df_market_curr[driver_cols] = self.df_market_curr[driver_cols].astype(float)
             self.df_market_curr.rename(columns=market_rename_dict, inplace=True)
 
             # get comp market size data
-            self.df_market_comp = self.calculate_market_share_denominator(metrics=driver_metrics, filters=market_filters + [self.comp_period], breakouts=[breakout], subject_breakout=subject_dim)
+            self.df_market_comp = calculate_market_share_denominator(
+                pull_data_func = self.pull_data_func,
+                metrics=driver_metrics,
+                filters=market_filters + [self.comp_period],
+                breakouts=[breakout],
+                subject_breakout=subject_dim
+            )
 
             self.check_row_limit(self.df_market_comp)
 
