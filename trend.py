@@ -1,337 +1,208 @@
-import copy
-from collections import defaultdict
-
-import pandas as pd
-from ar_analytics.trend import AdvanceTrend, GROWTH, DELTA
-from ar_analytics.helpers.utils import Connector, is_using_max_sql_gen, exit_with_status, is_filter_token
-from overproof_utilities import MenuColNames, OverproofSharedFn
-
-class OverproofDataProvider(AdvanceTrend):
-    def __init__(self, table: str, sql_exec: Connector, time: dict, dim_hierarchy: dict = {}, constrained_values={}, max_num_charts=10, df_provider=None):
-        super().__init__(table, sql_exec, time, dim_hierarchy, constrained_values, max_num_charts, df_provider)
-        self.helper = OverproofSharedFn()
-
-
-    def check_count_metric(self, metric: dict) -> bool:
-        met_name = metric.get('name')
-        count_metrics = [MenuColNames.MENU_PLACEMENTS_METRIC.value, MenuColNames.VENUE_PLACEMENTS_METRIC.value]
-        return met_name in count_metrics
-
-    def calculate_market_share_denominator(
-            self,
-            metrics,
-            breakouts=[],
-            filters=[],
-            order_cols=None,
-            query_row_limit=None,
-            subject_breakout=None
-    ) -> pd.DataFrame:
-        '''
-        Calculate the denominator for the market share calculation.
-        Provides the normal denominator for non-count metrics.
-        Provides the sum of count metrics for the subject breakout as the denominator for count metrics.
-        '''
-
-        if subject_breakout:
-            non_count_metrics = [m for m in metrics if not self.check_count_metric(m)]
-            count_metrics = [m for m in metrics if self.check_count_metric(m)]
-        else:
-            non_count_metrics = metrics
-            count_metrics = []
-
-        non_count_df = pd.DataFrame()
-        count_df = pd.DataFrame()
-
-        if non_count_metrics:
-            non_count_df = self.pull_data_func(non_count_metrics, breakouts, filters, order_cols, query_row_limit)
-
-        if count_metrics:
-            # groupby dims + subject_breakout, then sum over everything except the subject_breakout
-            count_df = self.pull_data_func(count_metrics, breakouts + [subject_breakout], filters, order_cols,
-                                           query_row_limit)
-            if breakouts:
-                count_df = count_df.groupby(breakouts).sum().reset_index()
-            else:
-                count_df = count_df.groupby(lambda x: True).sum().reset_index(drop=True)
-
-        if not non_count_df.empty and not count_df.empty:
-            df = pd.merge(non_count_df, count_df, on=breakouts, how='inner')
-        elif non_count_df.empty and not count_df.empty:
-            df = count_df
-        elif not non_count_df.empty and count_df.empty:
-            df = non_count_df
-        else:
-            df = pd.DataFrame()
-
-        return df
-
-    # Overwriting so that sales_uplift is considered a calculated metric
-    # This will make it so pull_data is called to recalculate the total for sales uplift
-    def get_metric_sql(self, metric):
-        calculated_metrics, non_calculated_metrics = None, None
-        if metric.get("sql") and metric.get("col") or metric.get("name") == MenuColNames.SALES_UPLIFT_METRIC.value:
-            calculated_metrics = metric
-        elif metric.get("col"):
-            non_calculated_metrics = metric["name"]
-        return calculated_metrics, non_calculated_metrics
-
-    def _run_share(self, base_df, metrics, dims, fils, period_filter, table_specific_filters, top_n, top_n_direction, required_dim_vals):
-        filters = copy.deepcopy(fils)
-        base_df = base_df.copy()
-
-        # create a dict of share metric properties
-        underlying_metric_props = {}
-        for metric in metrics:
-            metric_dict = self.helper.get_metric_prop(metric, self.metric_props)
-            underlying_metric = metric_dict.get("component_metric")
-
-            # check that share metric has underlying metric details. Required for share calculations
-            if not underlying_metric:
-                raise exit_with_status(f"Component metric for '{metric}' not specified in metric properties")
-
-            underlying_metric_dict = self.helper.get_metric_prop(underlying_metric, self.metric_props)
-
-            underlying_metric_props[metric] = underlying_metric_dict
-
-        # metric columns to select from data
-
-        # # set share flag
-        # for m in metrics:
-        #     underlying_metric_props[m]['is_share'] = True
-        #
-        share_metric_props = [underlying_metric_props[m] for m in metrics]
-
-        if period_filter:
-            filters.append(period_filter)
-
-        additional_filters = []
-        for dim in dims:
-            additional_filters.extend(table_specific_filters.get(dim, table_specific_filters.get('default', [])))
-
-        # get share base
-        join_cols = ['date_column', self.date_alias, 'metric']
-        if self.date_sort_col:
-            join_cols.append(self.pandas_sort_col)
-
-        # rename metrics from component metric column to component metric
-        rename_dict = {underlying_metric_props[m]['col']:
-                           underlying_metric_props[m]['name'] for m in metrics}
-
-        if dims:
-            dim_dfs = []
-
-            for dim in dims:
-
-                breakout_label = self.helper.get_dimension_prop(dim, self.dim_props).get("label", dim)
-
-                dim_required_vals = defaultdict(list)
-                base_dim_df = base_df[base_df['dim'] == dim]
-
-                # check if any of the filters are in owner hierarchy, remove them from market_filters
-                market_filters = [f for f in filters if f['col'] not in self.dim_hier.owner_cols]
-
-                subject_breakout = dim
-                # check if filters are the same for numerator and denominator
-                # if it's the same then calculate contribution to total
-                dim_join_cols = join_cols
-                if market_filters == filters or dim in self.dim_hier.owner_cols:
-                    self.contributions.append(breakout_label)
-                else:
-                    self.share_within.append(breakout_label)
-                    subject_filters = [f for f in filters if
-                                       not is_filter_token(f['val']) and f['col'] in self.dim_hier.owner_cols]
-                    subject_breakout = subject_filters[0]['col'] if subject_filters else None
-
-                dim_market_df = self.get_trend_data(share_metric_props, [], market_filters + additional_filters, top_n, top_n_direction, dim_required_vals, is_share=True, subject_breakout=subject_breakout)
-
-                dim_market_df['metric'] = dim_market_df['metric'].apply(lambda x: rename_dict.get(x, x))
-                dim_market_df = dim_market_df.rename(columns={'value': 'market_value'})
-
-                # join the market_df with the base_df
-                base_dim_df = pd.merge(base_dim_df, dim_market_df, on=dim_join_cols, how='inner')
-
-                dim_dfs.append(base_dim_df)
-            market_df = pd.concat(dim_dfs, ignore_index=True)
-        else:
-            # check if any of the filters are in owner hierarchy, remove them from market_filters
-            market_filters = [f for f in filters if f['col'] not in self.dim_hier.owner_cols]
-            total_market_df = self.get_trend_data(share_metric_props, [], market_filters + additional_filters, top_n, top_n_direction, required_dim_vals, is_share=True)
-
-            total_market_df['metric'] = total_market_df['metric'].apply(lambda x: rename_dict.get(x, x))
-            # calculate market share
-            total_market_df = total_market_df.rename(columns={'value': 'market_value'})
-
-            market_df = pd.merge(base_df, total_market_df, on=join_cols, how='inner')
-
-        # calculate market share
-        market_df['market_share'] = market_df['value'] / market_df['market_value']
-        dim_cols = ['dim_val', 'dim'] if dims else []
-        market_df = market_df[[*join_cols, 'market_share'] + dim_cols]
-        market_df = market_df.rename(columns={'market_share': 'value'})
-
-        # rename metrics from component metric to share metric
-        rename_dict = {underlying_metric_props[m]['name']: m for m in metrics}
-        market_df['metric'] = market_df['metric'].apply(lambda x: rename_dict.get(x, x))
-
-        return market_df
-
-
-    def get_trend_data(self, metrics, dims, filters, top_n, top_n_direction, required_dim_vals, is_share=False, subject_breakout=None):
-        use_max_sql_gen = is_using_max_sql_gen()
-
-        referenced_table, sql = self.get_referenced_table_and_starting_sql(self.table, self.view)
-
-        # process dim filters
-        for f in filters:
-            for dim in dims:
-                if f['col'] == dim and f['op'].lower() in ['=', 'in']:
-                    # make sure all dim filters are also required dim vals
-                    if isinstance(f['val'], list):
-                        required_dim_vals[dim].extend(f['val'])
-                    else:
-                        required_dim_vals[dim].append(f['val'])
-                    # remove dim ambiguity
-                    f['col'] = f"{referenced_table}.{dim}" if not use_max_sql_gen else dim
-                    break
-
-        # format metric sql
-        calculated_metrics = []
-        non_calculated_metrics = []
-
-        if self.metric_name_column:
-            c_metrics, nc_metrics = self.get_metric_sql(self.value_metric)
-            if nc_metrics:
-                non_calculated_metrics.append(nc_metrics)
-            else:
-                calculated_metrics.append(c_metrics)
-            dims.append(self.metric_name_column)
-        else:
-            for metric in metrics:
-                c_metrics, nc_metrics = self.get_metric_sql(metric)
-                if nc_metrics:
-                    non_calculated_metrics.append(nc_metrics)
-                else:
-                    calculated_metrics.append(c_metrics)
-
-        if dims:
-            # Get the data for the top 10 dim values (+ required dim values) by the first metric for each dimension
-            dim_dfs = []
-
-            for dim in dims:
-                top_dim_vals = []
-                if top_n:
-                    first_metric = metrics[0]
-
-                    top_dim_df = self.pull_data_func(metrics=[first_metric],
-                                                     filters=filters,
-                                                     breakouts=[dim],
-                                                     order_cols=[{"col": first_metric["name"], "direction": top_n_direction}],
-                                                     query_row_limit=top_n)
-
-                    top_dim_vals = list(top_dim_df[dim].unique())
-
-                if required_dim_vals.get(dim):
-                    top_dim_vals = [v.lower() for v in top_dim_vals + required_dim_vals[dim]]
-                    top_dim_vals = list(dict.fromkeys(top_dim_vals))
-                else:
-                    top_dim_vals = top_dim_vals
-
-                if top_dim_vals:
-                    datapull_filters = filters + [{"col": dim, "op": "IN", "val": top_dim_vals}]
-                else:
-                    datapull_filters = filters
-
-                df = self.pull_data_func(metrics=metrics,
-                                         filters=datapull_filters,
-                                         breakouts=[dim] + [f"max_time_{self.time_granularity}"],
-                                         order_cols=[{"col": f"max_time_{self.time_granularity}", "alias": "date_column", "direction": "ASC"}],
-                                         query_row_limit=self.row_limit)
-
-                    # df = self.calculate_market_share_denominator(
-                    #     metrics=metrics,
-                    #     breakouts=[f"max_time_{self.time_granularity}"],
-                    #     filters=datapull_filters,
-                    #     order_cols=[{"col": f"max_time_{self.time_granularity}", "alias": "date_column", "direction": "ASC"}],
-                    #     query_row_limit=self.row_limit,
-                    #     subject_breakout=dim
-                    # )
-
-                df.rename(columns={f"max_time_{self.time_granularity}": self.time_granularity}, inplace=True)
-
-                self.check_row_limit(df)
-
-                # calculate totals
-                if not self.hide_totals:
-                    totals_df = self.calculate_totals_df(df, calculated_metrics=calculated_metrics, non_calculated_metrics=non_calculated_metrics, filters=filters, dim=dim)
-                    df = pd.concat([df, totals_df], axis=0)
-
-                # rename dim values to 'dim_val', create dim column
-                df['dim'] = dim
-                df.rename(columns={dim: 'dim_val'}, inplace=True)
-
-                dim_dfs.append(df)
-
-            df = pd.concat(dim_dfs, axis=0)
-
-        else:
-            if not is_share:
-                df = self.pull_data_func(metrics=metrics,
-                                         filters=filters,
-                                         breakouts=[f"max_time_{self.time_granularity}"],
-                                         order_cols=[{"col": f"max_time_{self.time_granularity}", "alias": "date_column", "direction": "ASC"}],
-                                         query_row_limit=self.row_limit)
-            else:
-                df = self.calculate_market_share_denominator(
-                    metrics=metrics,
-                    breakouts=[f"max_time_{self.time_granularity}"],
-                    filters=filters,
-                    order_cols=[{"col": f"max_time_{self.time_granularity}", "alias": "date_column", "direction": "ASC"}],
-                    query_row_limit=self.row_limit,
-                    subject_breakout=subject_breakout
-                )
-            df.rename(columns={f"max_time_{self.time_granularity}": self.time_granularity}, inplace=True)
-
-            if 'date_column' not in df.columns:
-                df['date_column'] = df[self.time_granularity]
-
-            self.check_row_limit(df)
-
-            # calculate totals
-            if not self.hide_totals:
-                totals_df = self.calculate_totals_df(df, calculated_metrics=calculated_metrics, non_calculated_metrics=non_calculated_metrics, filters=filters)
-                df = pd.concat([df, totals_df], axis=0)
-
-        if dims:
-            id_vars = ['date_column', self.date_alias, 'dim_val', 'dim']
-            df['dim'] = df['dim'].astype(str)
-        else:
-            id_vars = ['date_column', self.date_alias]
-
-        if self.date_sort_col:
-            id_vars.append(self.pandas_sort_col)
-
-        metric_cols = [metric["name"] for metric in metrics]
-        if not self.metric_name_column:
-            df = df.melt(id_vars=id_vars, value_vars=metric_cols, var_name='metric', value_name='value')
-        else:
-            df = df.rename(columns={self.metric_name_column: 'metric', self.value_metric["col"]: 'value'})
-
-        df['value'] = df['value'].astype(float)
-
-        # sql query forces lowercase cols, revert back to original case
-        metric_map = {metric.lower(): metric for metric in metric_cols}
-        df['metric'] = df['metric'].apply(lambda x: metric_map.get(x, x))
-
-        print(df.head().to_string())
-
-        if not self.date_sort_col:
-            df["date_column"] = pd.to_datetime(df["date_column"])
-
-        if len(df) > 0:
-            self.actual_first_period, self.actual_last_period = df[self.date_alias].iloc[0], df[self.date_alias].iloc[-1]
-        else:
-            self.actual_first_period, self.actual_last_period = "", ""
-
-        self.show_labels = len(df["date_column"].unique()) < 25
-
-        return df
+from __future__ import annotations
+from types import SimpleNamespace
+
+from skill_framework import SkillVisualization, skill, SkillParameter, SkillInput, SkillOutput, ParameterDisplayDescription
+from skill_framework.preview import preview_skill
+from skill_framework.skills import ExportData
+from skill_framework.layouts import wire_layout
+
+# from ar_analytics import AdvanceTrend, TrendTemplateParameterSetup, ArUtils
+from ar_analytics import ArUtils, TrendTemplateParameterSetup
+from temp_trend import OverproofTemporaryAdvanceTrend
+from ar_analytics.defaults import trend_analysis_config, default_trend_chart_layout, default_table_layout, get_table_layout_vars
+
+from overproof_data_provider import DataProvider
+import jinja2
+import logging
+import json
+
+from overproof_utilities import map_cocktails
+
+RUNNING_LOCALLY = False
+
+logger = logging.getLogger(__name__)
+
+@skill(
+    name=trend_analysis_config.name,
+    llm_name=trend_analysis_config.llm_name,
+    description=trend_analysis_config.description,
+    capabilities=trend_analysis_config.capabilities,
+    limitations=trend_analysis_config.limitations,
+    example_questions=trend_analysis_config.example_questions,
+    parameter_guidance=trend_analysis_config.parameter_guidance,
+    parameters=[
+        SkillParameter(
+            name="periods",
+            constrained_to="date_filter",
+            is_multi=True,
+            description="If provided by the user, list time periods in a format 'q2 2023', '2021', 'jan 2023', 'mat nov 2022', 'mat q1 2021', 'ytd q4 2022', 'ytd 2023', 'ytd', 'mat', '<no_period_provided>' or '<since_launch>'. Use knowledge about today's date to handle relative periods and open ended periods. If given a range, for example 'last 3 quarters, 'between q3 2022 to q4 2023' etc, enumerate the range into a list of valid dates. Don't include natural language words or phrases, only valid dates like 'q3 2023', '2022', 'mar 2020', 'ytd sep 2021', 'mat q4 2021', 'ytd q1 2022', 'ytd 2021', 'ytd', 'mat', '<no_period_provided>' or '<since_launch>' etc."
+        ),
+        SkillParameter(
+            name="metrics",
+            is_multi=True,
+            constrained_to="metrics"
+        ),
+        SkillParameter(
+            name="limit_n",
+            description="limit the number of values by this number",
+            default_value=10
+        ),
+        SkillParameter(
+            name="breakouts",
+            is_multi=True,
+            constrained_to="dimensions",
+            description="breakout dimension(s) for analysis."
+        ),
+        SkillParameter(
+            name="time_granularity",
+            is_multi=False,
+            constrained_to="date_dimensions",
+            description="time granularity provided by the user. only add if explicitly stated by user."
+        ),
+        SkillParameter(
+            name="growth_type",
+            constrained_to=None,
+            constrained_values=["Y/Y", "P/P", "None"],
+            description="Growth type either Y/Y, P/P, or None"
+        ),
+        SkillParameter(
+            name="other_filters",
+            constrained_to="filters"
+        ),
+        SkillParameter(
+            name="max_prompt",
+            parameter_type="prompt",
+            description="Prompt being used for max response.",
+            default_value=trend_analysis_config.max_prompt
+        ),
+        SkillParameter(
+            name="insight_prompt",
+            parameter_type="prompt",
+            description="Prompt being used for detailed insights.",
+            default_value=trend_analysis_config.insight_prompt
+        ),
+        SkillParameter(
+            name="table_viz_layout",
+            parameter_type="visualization",
+            description="Table Viz Layout",
+            default_value=default_table_layout
+        ),
+        SkillParameter(
+            name="chart_viz_layout",
+            parameter_type="visualization",
+            description="Chart Viz Layout",
+            default_value=default_trend_chart_layout
+        )
+    ]
+)
+def trend(parameters: SkillInput):
+    print(f"Skill received following parameters: {parameters.arguments}")
+    param_dict = {"periods": [], "metrics": None, "limit_n": 10, "breakouts": [], "growth_type": None, "other_filters": [], "time_granularity": None}
+
+    # Update param_dict with values from parameters.arguments if they exist
+    for key in param_dict:
+        if hasattr(parameters.arguments, key) and getattr(parameters.arguments, key) is not None:
+            param_dict[key] = getattr(parameters.arguments, key)
+
+    env = SimpleNamespace(**param_dict)
+    TrendTemplateParameterSetup(env=env)
+
+    updated_filters, updated_breakouts, updated_dim_hierarchy = map_cocktails(
+        env.trend_parameters["query_filters"], 
+        env.trend_parameters["breakouts"], 
+        env.trend_parameters["dim_hierarchy"],
+        env.dim_props
+    )
+
+    env.trend_parameters["query_filters"] = updated_filters
+    env.trend_parameters["breakouts"] = updated_breakouts
+    env.trend_parameters["dim_hierarchy"] = updated_dim_hierarchy
+
+    df_provider = DataProvider()
+
+    env.trend = OverproofTemporaryAdvanceTrend.from_env(env=env, df_provider=df_provider)
+    df = env.trend.run_from_env()
+    param_info = [ParameterDisplayDescription(key=k, value=v) for k, v in env.trend.paramater_display_infomation.items()]
+    tables = [env.trend.display_dfs.get("Metrics Table")]
+
+    general_footnote = ""
+    if df_provider.removed_nones:
+        general_footnote = "Many Items are not aligned with specific product details. These values are filtered from analysis and calculations to provide a more clear answer."
+
+    if df_provider.removed_nones:
+        env.trend.notes.append("Some breakout dimensions had values equal to 'None'. These values have been removed from the analysis.")
+        env.trend.notes.append("Many Items are not aligned with specific product details. These values are filtered from analysis and calculations to provide a more clear answer.")
+
+    insights_dfs = [env.trend.df_notes, env.trend.facts, env.trend.top_facts, env.trend.bottom_facts]
+
+    charts = env.trend.get_dynamic_layout_chart_vars()
+
+    viz, insights, final_prompt = render_layout(charts,
+                                                tables,
+                                                env.trend.title,
+                                                env.trend.subtitle,
+                                                insights_dfs,
+                                                env.trend.warning_message,
+                                                general_footnote,
+                                                parameters.arguments.max_prompt,
+                                                parameters.arguments.insight_prompt,
+                                                parameters.arguments.table_viz_layout,
+                                                parameters.arguments.chart_viz_layout)
+
+    return SkillOutput(
+        final_prompt=final_prompt,
+        narrative=None,
+        visualizations=viz,
+        parameter_display_descriptions=param_info,
+        followup_questions=[],
+        export_data=[ExportData(name="Metrics Table", data=tables[0])]
+    )
+
+def render_layout(
+    charts,
+    tables,
+    title,
+    subtitle,
+    insights_dfs,
+    warnings,
+    general_footnote,
+    max_prompt,
+    insight_prompt,
+    table_viz_layout,
+    chart_viz_layout,
+):
+    facts = []
+    for i_df in insights_dfs:
+        facts.append(i_df.to_dict(orient="records"))
+
+    insight_template = jinja2.Template(insight_prompt).render(**{"facts": facts})
+    max_response_prompt = jinja2.Template(max_prompt).render(**{"facts": facts})
+
+    # adding insights
+    ar_utils = ArUtils()
+    insights = ar_utils.get_llm_response(insight_template)
+
+    tab_vars = {
+        "headline": title if title else "Total",
+        "sub_headline": subtitle or "Trend Analysis",
+        "hide_growth_warning": False if warnings else True,
+        "exec_summary": insights if insights else "No Insight.",
+        "warning": warnings,
+    }
+
+    viz = []
+    for name, chart_vars in charts.items():
+        chart_vars["hide_footer"] = False if general_footnote else True
+        chart_vars["footer"] = f"{chart_vars.get('footer', '')} {general_footnote.strip()}" if general_footnote else chart_vars.get("footer", "")
+        rendered = wire_layout(json.loads(chart_viz_layout), {**tab_vars, **chart_vars})
+        viz.append(SkillVisualization(title=name, layout=rendered))
+
+    table_vars = get_table_layout_vars(tables[0])
+    table_vars["hide_footer"] = False if general_footnote else True
+    table_vars["footer"] = (
+        f"*{general_footnote.strip()}" if general_footnote else "No additional info."
+    )
+    table = wire_layout(json.loads(table_viz_layout), {**tab_vars, **table_vars})
+    viz.append(SkillVisualization(title="Metrics Table", layout=table))
+
+    return viz, insights, max_response_prompt

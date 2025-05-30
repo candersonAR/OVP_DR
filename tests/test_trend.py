@@ -1,5 +1,5 @@
 from typing import Dict
-from overproof_trend import trend
+from trend import trend
 from skill_framework import SkillInput
 from skill_framework.preview import preview_skill
 
