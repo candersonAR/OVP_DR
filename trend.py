@@ -8,7 +8,7 @@ from skill_framework.layouts import wire_layout
 
 # from ar_analytics import AdvanceTrend, TrendTemplateParameterSetup, ArUtils
 from ar_analytics import ArUtils, TrendTemplateParameterSetup
-from temp_trend import OverproofTemporaryAdvanceTrend
+from overproof_trend import OverproofTemporaryAdvanceTrend
 from ar_analytics.defaults import trend_analysis_config, default_trend_chart_layout, default_table_layout, get_table_layout_vars
 
 from overproof_data_provider import DataProvider
