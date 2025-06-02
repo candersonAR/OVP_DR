@@ -8,7 +8,9 @@ class TestLegacyBreakout:
 
     metric__sold_9le = MenuColNames.SOLD_9LE_METRIC.value
     metric__menu_placements = MenuColNames.MENU_PLACEMENTS_METRIC.value
-    metric__sales_uplift = MenuColNames.SALES_UPLIFT_METRIC.value
+    metric__menu_uplift = MenuColNames.MENU_UPLIFT_METRIC.value
+    metric__single_spirit_uplift = MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value
+    metric__cocktail_uplift = MenuColNames.COCKTAIL_UPLIFT_METRIC.value
 
     breakout__cocktail_family = MenuColNames.COCKTAIL_FAMILY_COL.value
     breakout__brand_name = MenuColNames.BRAND_NAME_COL.value
@@ -58,16 +60,31 @@ class TestLegacyBreakout:
     def test_sales_uplift_by_cocktail_group_for_papa_pilar_in_q1_2024(self):
 
         self._assert_simple_breakout_runs_without_errors(parameters={
-            'metrics': [self.metric__sales_uplift],
+            'metrics': [self.metric__menu_uplift],
             'breakouts': [self.breakout__cocktail_group],
             'periods': [self.period__q1_2024],
             'other_filters': [self.filter__brand_name__papa_pilar]
         })
-
-    def test_sales_uplift_by_brand_in_q1_2024(self):
-
+    
+    def test_uplift_arguments_are_valid(self):
         self._assert_simple_breakout_runs_without_errors(parameters={
-            'metrics': [self.metric__sales_uplift],
-            'breakouts': [self.breakout__brand_name],
-            'periods': [self.period__q1_2024]
+            "metrics": [
+                self.metric__menu_uplift
+            ],
+            "periods": [
+                "jan 2024",
+                "feb 2024",
+                "mar 2024"
+            ],
+            "brand_name": [
+                "papa's pilar"
+            ]
         })
+
+    # def test_sales_uplift_by_brand_in_q1_2024(self):
+
+    #     self._assert_simple_breakout_runs_without_errors(parameters={
+    #         'metrics': [self.metric__sales_uplift],
+    #         'breakouts': [self.breakout__brand_name],
+    #         'periods': [self.period__q1_2024]
+    #     })

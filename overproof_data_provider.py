@@ -1,5 +1,5 @@
 from typing import Optional
-from ar_analytics.helpers.utils import pull_data, exit_with_status
+from ar_analytics.helpers.utils import pull_data, exit_with_status, PreQueryOperator
 from overproof_utilities import MenuColNames
 import pandas as pd
 import numpy as np
@@ -32,7 +32,7 @@ class DataProvider(object):
             # MenuColNames.MENU_ITEM_TYPE_COL.value
         ]
         # todo: sales uplift
-        self.sales_uplift_metrics = [MenuColNames.SALES_UPLIFT_METRIC.value]
+        self.sales_uplift_metrics = [MenuColNames.COCKTAIL_UPLIFT_METRIC.value, MenuColNames.MENU_UPLIFT_METRIC.value, MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value]
         # joining dimensions (lowest common granularity) between menu and depletions data
         self.common_dims = [MenuColNames.VENUE_ID_COL.value, MenuColNames.PRODUCT_ID_COL.value]
         self.menu_metrics = [MenuColNames.MENU_PLACEMENTS_METRIC.value, MenuColNames.VENUE_PLACEMENTS_METRIC.value]
@@ -113,91 +113,223 @@ class DataProvider(object):
         if is_cross_query:
 
             if sales_uplift_metrics:
+                print(f"Filters: {filters}")
+                filter_columns = [f["col"] for f in filters] if filters else []
+                brand_or_supplier_present = any(col in filter_columns for col in [MenuColNames.BRAND_NAME_COL.value, MenuColNames.SUPPLIER_NAME_COL.value])
+                
+                if not brand_or_supplier_present:
+                    raise exit_with_status(f"Either {MenuColNames.BRAND_NAME_COL.value} or {MenuColNames.SUPPLIER_NAME_COL.value} is required to calculate sales uplift. Please ask the user to provide one of the two.")
 
-                depl_dims = [b for b in breakouts if b not in cocktail_dims and b not in time_period_dims]
-                uplift_common_dims = [MenuColNames.VENUE_ID_COL.value] + time_period_dims + depl_dims
-                # venue_breakouts = cocktail_dims + uplift_common_dims
-                venue_breakouts = cocktail_dims + uplift_common_dims
-                # venue_filters = [f for f in filters if f["col"] not in venue_breakouts]
-                venue_filters = []
+                if any(b in [MenuColNames.BRAND_NAME_COL.value, MenuColNames.SUPPLIER_NAME_COL.value] for b in breakouts):
+                    raise exit_with_status(f"Brand and supplier breakouts are not supported for sales uplift. Please ask the user to remove one the filter")
 
+                if len(sales_uplift_metrics) > 1:
+                    raise exit_with_status(f"Only one sales uplift metric is supported at a time. Please ask the user to only select a single uplift metric at a time.")
+
+                # Check if we have cocktail filters for an uplift other than cocktail uplift
+                if sales_uplift_metrics[0].get("name") != MenuColNames.COCKTAIL_UPLIFT_METRIC.value and cocktail_filter_dims:
+                    raise exit_with_status(f"{sales_uplift_metrics[0].get('name')} is not supported with cocktail filter dimensions. Did you mean to calculate Cocktail Uplift?")
+
+                if sales_uplift_metrics and [f for f in filters if f["col"] == MenuColNames.VENUE_PREMISE_TYPE_COL.value]:
+                    raise exit_with_status(f"Sales uplift is not supported filtering on {MenuColNames.VENUE_PREMISE_TYPE_COL.value}")
+
+
+                uplift_metric_type = sales_uplift_metrics[0].get("name")
+
+                venue_premise_filter = {"col": MenuColNames.VENUE_PREMISE_TYPE_COL.value, "op": PreQueryOperator.EQUALS.value, "val": "On-Premise"}
+                product_id_filter = {"col": MenuColNames.PRODUCT_ID_COL.value, "op": PreQueryOperator.NOT_NULL.value, 'val': None}
+                filters = [venue_premise_filter, product_id_filter] + filters if filters else [venue_premise_filter, product_id_filter]
+
+                # Extract brand/supplier filters for later use
+                brand_filters = [f for f in filters if f["col"] == MenuColNames.BRAND_NAME_COL.value]
+                supplier_filters = [f for f in filters if f["col"] == MenuColNames.SUPPLIER_NAME_COL.value]
+                
+                # 1. Pull depletion data ONCE (remove cocktail filters)
+                # depl_dims = [b for b in breakouts if b not in cocktail_dims and b not in time_period_dims]
+                # uplift_common_dims = [MenuColNames.VENUE_ID_COL.value] + time_period_dims + depl_dims
+                depl_filters = [f for f in filters if f["col"] not in self.cross_dims + [MenuColNames.PRODUCT_ID_COL.value]]
+                
                 start_time = time.time()
-                venues_df = pull_data(
-                    metrics=[],
-                    breakouts=venue_breakouts,
-                    filters=filters,
-                    query_row_limit=10000000, # hardcoded, can get pretty large
-                    dataset_id=self.menu_dataset
-                )
-                end_time = time.time()
-                exec_time = end_time - start_time
-                print(f"total_rows: {len(venues_df)} with time: {exec_time:.2f}s")
-                self.query_timing += np.round(exec_time, 2)
-                self.query_count += 1
-
-                venues_df = venues_df.drop_duplicates()
-
-                # remove cocktail dims since it's not available on depletion data
-                depl_fils = [f for f in filters if f["col"] not in self.cross_dims] if filters else []
-
-                start_time = time.time()
-                sales_uplift_df = pull_data(
-                    metrics=sales_uplift_metrics,
-                    breakouts=uplift_common_dims,
-                    filters=depl_fils,
-                    order_cols=order_cols,
-                    query_row_limit=10000000, # hardcoded, can get pretty large
+                depletions_df = pull_data(
+                    metrics=[{"name": MenuColNames.SOLD_9LE_METRIC.value}],
+                    breakouts=[MenuColNames.VENUE_ID_COL.value],
+                    filters=depl_filters,
+                    query_row_limit=10000000,
                     dataset_id=self.depletion_dataset
                 )
                 end_time = time.time()
                 exec_time = end_time - start_time
-                print(f"total_rows: {len(sales_uplift_df)} with time: {exec_time:.2f}s")
+                print(f"Depletion data - total_rows: {len(depletions_df)} with time: {exec_time:.2f}s")
                 self.query_timing += np.round(exec_time, 2)
                 self.query_count += 1
+                
+                # Aggregate depletion data by venue
+                depl_agg = depletions_df.groupby(MenuColNames.VENUE_ID_COL.value).agg({
+                    MenuColNames.SOLD_9LE_METRIC.value: 'sum'
+                }).reset_index()
+                
+                # 2. Pull menu data WITH brand (for menu mention, single spirit, cocktail)
+                start_time = time.time()
+                menu_with_brand_df = pull_data(
+                    metrics=[],
+                    breakouts=[MenuColNames.VENUE_ID_COL.value, MenuColNames.PRODUCT_ID_COL.value, 
+                            MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value],
+                    filters=filters,
+                    query_row_limit=10000000,
+                    dataset_id=self.menu_dataset
+                )
+                end_time = time.time()
+                exec_time = end_time - start_time
+                print(f"Menu with brand - total_rows: {len(menu_with_brand_df)} with time: {exec_time:.2f}s")
+                self.query_timing += np.round(exec_time, 2)
+                self.query_count += 1
+                
+                # 3. Pull venues WITHOUT brand for just_in_distribution
+                # Remove brand/supplier filters and add negated versions
+                just_in_dist_filters = [f for f in filters if f["col"] not in [MenuColNames.BRAND_NAME_COL.value, MenuColNames.SUPPLIER_NAME_COL.value, MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value]]
+                
+                # Add negated brand/supplier filters
+                for bf in brand_filters:
+                    negated_brand_filter = bf.copy()
+                    if type(bf.get("val")) == list:
+                        negated_brand_filter["op"] = PreQueryOperator.NOT_IN.value
+                    else:
+                        negated_brand_filter["op"] = PreQueryOperator.NOT_EQUALS.value
 
-                # get the total average sales uplift across the time period breakout
-                # time_period_dims = [d for d in depl_dims if d in self.max_time_dimensions]
-                sales_uplift_total_avg_agg_dict = {sales_uplift_metrics[0].get("name"): np.mean}
-
-                avg_join_dims = depl_dims + time_period_dims
-                if avg_join_dims:
-                    total_avg_sales_uplift_df = sales_uplift_df.groupby(avg_join_dims).agg(sales_uplift_total_avg_agg_dict).reset_index()
-                else:
-                    total_avg_sales_uplift_df = sales_uplift_df.agg(sales_uplift_total_avg_agg_dict).to_frame().T
-                total_avg_sales_uplift_df = total_avg_sales_uplift_df.rename(columns={sales_uplift_metrics[0].get("name"): "total_avg"})
-
-                # join the sales uplift df with the qualifier df on the common dims
-                sales_uplift_df = pd.merge(sales_uplift_df, venues_df, on=uplift_common_dims, how='inner')
-
-                # join the sales uplift df with the total avg sales uplift df on the time period dims and depletion dims
-                if avg_join_dims:
-                    sales_uplift_df = pd.merge(sales_uplift_df, total_avg_sales_uplift_df, on=avg_join_dims, how='left')
-                else:
-                    # total_avg_sales_uplift_df should be a scalar
-                    sales_uplift_df["total_avg"] = total_avg_sales_uplift_df.iloc[0]["total_avg"]
-
-                sales_uplift_joined_agg_dict = {sales_uplift_metrics[0].get("name"): np.mean, "total_avg": np.sum}
+                    just_in_dist_filters.append(negated_brand_filter)
+                
+                for sf in supplier_filters:
+                    negated_supplier_filter = sf.copy()
+                    if type(sf.get("val")) == list:
+                        negated_supplier_filter["op"] = PreQueryOperator.NOT_IN.value
+                    else:
+                        negated_supplier_filter["op"] = PreQueryOperator.NOT_EQUALS.value
+                    just_in_dist_filters.append(negated_supplier_filter)
+                
+                start_time = time.time()
+                menu_without_brand_df = pull_data(
+                    metrics=[],
+                    breakouts=[MenuColNames.VENUE_ID_COL.value],
+                    filters=just_in_dist_filters,
+                    query_row_limit=10000000,
+                    dataset_id=self.menu_dataset
+                )
+                end_time = time.time()
+                exec_time = end_time - start_time
+                print(f"Menu without brand - total_rows: {len(menu_without_brand_df)} with time: {exec_time:.2f}s")
+                self.query_timing += np.round(exec_time, 2)
+                self.query_count += 1
+                
+                # Calculate just_in_distribution (denominator - shared for all metrics)
+                just_in_dist_venues = set(menu_without_brand_df[MenuColNames.VENUE_ID_COL.value].unique())
+                
+                def calculate_avg_depletion(venue_set, depl_agg):
+                    venue_depl = depl_agg[depl_agg[MenuColNames.VENUE_ID_COL.value].isin(venue_set)]
+                    count = len(venue_depl)
+                    avg = venue_depl[MenuColNames.SOLD_9LE_METRIC.value].mean() if count > 0 else 0
+                    return count, avg
+                
+                just_in_dist_count, just_in_dist_avg = calculate_avg_depletion(just_in_dist_venues, depl_agg)
+                
+                # Calculate metric-specific numerator
+                match uplift_metric_type:
+                    case MenuColNames.MENU_UPLIFT_METRIC.value:
+                        # Menu mention venues (all venues with brand)
+                        numerator_venues = set(menu_with_brand_df[MenuColNames.VENUE_ID_COL.value].unique())
+                        numerator_count, numerator_avg = calculate_avg_depletion(numerator_venues, depl_agg)
+                        
+                    case MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value:
+                        # Single spirit venues (venues with brand but NOT in cocktails)
+                        single_spirit_df = menu_with_brand_df[menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] == "None"]
+                        venues_with_cocktails = set(menu_with_brand_df[menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] != "None"][MenuColNames.VENUE_ID_COL.value].unique())
+                        numerator_venues = set(single_spirit_df[MenuColNames.VENUE_ID_COL.value].unique()) - venues_with_cocktails
+                        numerator_count, numerator_avg = calculate_avg_depletion(numerator_venues, depl_agg)
+                        
+                    case MenuColNames.COCKTAIL_UPLIFT_METRIC.value:
+                        # Cocktail venues
+                        cocktail_filter_exists = MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value in [f["col"] for f in filters]
+                        if cocktail_filter_exists:
+                            # Specific cocktail - use already filtered data
+                            numerator_venues = set(menu_with_brand_df[menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] != "None"][MenuColNames.VENUE_ID_COL.value].unique())
+                        else:
+                            # Any cocktail
+                            numerator_venues = set(menu_with_brand_df[menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] != "None"][MenuColNames.VENUE_ID_COL.value].unique())
+                        numerator_count, numerator_avg = calculate_avg_depletion(numerator_venues, depl_agg)
+                
+                # Calculate uplift
+                uplift_value = numerator_avg / just_in_dist_avg if just_in_dist_avg > 0 else 0
+                
+                # Get dimensions for structure
+                time_period_dims = [d for d in breakouts if d in self.max_time_dimensions]
+                depl_dims = [b for b in breakouts if b not in cocktail_dims and b not in time_period_dims]
                 agg_dims = cocktail_dims + time_period_dims + depl_dims
-                if "date_column" in sales_uplift_df.columns and time_period_dims: 
-                    # keep the trend date_column, which will mirror the time_period dim used
-                    agg_dims.append("date_column")
-
+                
+                # Create base result with uplift value and dimensions
+                result_data = {uplift_metric_type: uplift_value}
+                
+                # Add all dimensions to match structure
+                for dim in agg_dims:
+                    result_data[dim] = breakouts[breakouts.index(dim)]
+                if "date_column" in breakouts:
+                    result_data["date_column"] = breakouts[breakouts.index("date_column")]
+                
+                # Create the result dataframe
+                result_df = pd.DataFrame([result_data])
+                
+                # If we have dimensions, aggregate to match structure
                 if agg_dims:
-                    sales_uplift_df = sales_uplift_df.groupby(agg_dims).agg(sales_uplift_joined_agg_dict).reset_index()
-                else:
-                    sales_uplift_df = sales_uplift_df.agg(sales_uplift_joined_agg_dict).to_frame().T
+                    result_df = result_df.groupby(agg_dims).agg({uplift_metric_type: np.mean}).reset_index()
                 
-                # calculate the sales uplift
-                sales_uplift_df[MenuColNames.SALES_UPLIFT_METRIC.value] = sales_uplift_df[MenuColNames.SALES_UPLIFT_METRIC.value] / sales_uplift_df["total_avg"]
-
-                # drop the total_avg column
-                sales_uplift_df = sales_uplift_df.drop(columns=["total_avg"])
+                # Sort and limit if needed
                 if query_row_limit:
-                    # sort by sales_uplift_metric in descending order
-                    sales_uplift_df = sales_uplift_df.sort_values(by=MenuColNames.SALES_UPLIFT_METRIC.value, ascending=False)
-                    sales_uplift_df = sales_uplift_df.head(query_row_limit)
+                    result_df = result_df.sort_values(by=uplift_metric_type, ascending=False)
+                    result_df = result_df.head(query_row_limit)
                 
-                dfs.append(sales_uplift_df)
+                dfs.append(result_df)
+
+                # # get the total average sales uplift across the time period breakout
+                # # time_period_dims = [d for d in depl_dims if d in self.max_time_dimensions]
+                # sales_uplift_total_avg_agg_dict = {sales_uplift_metrics[0].get("name"): np.mean}
+
+                # avg_join_dims = depl_dims + time_period_dims
+                # if avg_join_dims:
+                #     total_avg_sales_uplift_df = sales_uplift_df.groupby(avg_join_dims).agg(sales_uplift_total_avg_agg_dict).reset_index()
+                # else:
+                #     total_avg_sales_uplift_df = sales_uplift_df.agg(sales_uplift_total_avg_agg_dict).to_frame().T
+                # total_avg_sales_uplift_df = total_avg_sales_uplift_df.rename(columns={sales_uplift_metrics[0].get("name"): "total_avg"})
+
+                # # join the sales uplift df with the qualifier df on the common dims
+                # sales_uplift_df = pd.merge(sales_uplift_df, venues_df, on=uplift_common_dims, how='inner')
+
+                # # join the sales uplift df with the total avg sales uplift df on the time period dims and depletion dims
+                # if avg_join_dims:
+                #     sales_uplift_df = pd.merge(sales_uplift_df, total_avg_sales_uplift_df, on=avg_join_dims, how='left')
+                # else:
+                #     # total_avg_sales_uplift_df should be a scalar
+                #     sales_uplift_df["total_avg"] = total_avg_sales_uplift_df.iloc[0]["total_avg"]
+
+                # sales_uplift_joined_agg_dict = {sales_uplift_metrics[0].get("name"): np.mean, "total_avg": np.sum}
+                # agg_dims = cocktail_dims + time_period_dims + depl_dims
+                # if "date_column" in sales_uplift_df.columns and time_period_dims: 
+                #     # keep the trend date_column, which will mirror the time_period dim used
+                #     agg_dims.append("date_column")
+
+                # if agg_dims:
+                #     sales_uplift_df = sales_uplift_df.groupby(agg_dims).agg(sales_uplift_joined_agg_dict).reset_index()
+                # else:
+                #     sales_uplift_df = sales_uplift_df.agg(sales_uplift_joined_agg_dict).to_frame().T
+                
+                # # calculate the sales uplift
+                # sales_uplift_df[MenuColNames.SALES_UPLIFT_METRIC.value] = sales_uplift_df[MenuColNames.SALES_UPLIFT_METRIC.value] / sales_uplift_df["total_avg"]
+
+                # # drop the total_avg column
+                # sales_uplift_df = sales_uplift_df.drop(columns=["total_avg"])
+                # if query_row_limit:
+                #     # sort by sales_uplift_metric in descending order
+                #     sales_uplift_df = sales_uplift_df.sort_values(by=MenuColNames.SALES_UPLIFT_METRIC.value, ascending=False)
+                #     sales_uplift_df = sales_uplift_df.head(query_row_limit)
+                
+                # dfs.append(sales_uplift_df)
 
             if (depletion_metrics and (cocktail_dims or cocktail_filter_dims)):
 

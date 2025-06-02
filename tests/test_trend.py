@@ -12,7 +12,7 @@ class TestTrend:
 
     met1 = MenuColNames.SOLD_9LE_METRIC.value
     met2 = MenuColNames.MENU_PLACEMENTS_METRIC.value
-    sales_uplift = MenuColNames.SALES_UPLIFT_METRIC.value
+    # sales_uplift = MenuColNames.SALES_UPLIFT_METRIC.value
     sold_cases = MenuColNames.SOLD_CASES_METRIC.value
 
     # sales_met = "sales_share" # todo: need this for overproof?

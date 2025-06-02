@@ -14,7 +14,9 @@ class MenuColNames(Enum):
     MENU_PLACEMENTS_SHARE_METRIC = "menu_placements_share"
     SOLD_9LE_METRIC = "sold_9le"
     SOLD_CASES_METRIC = "sold_cases"
-    SALES_UPLIFT_METRIC = "sales_uplift"
+    MENU_UPLIFT_METRIC = "menu_uplift"
+    SINGLE_SPIRIT_UPLIFT_METRIC = "single_spirit_uplift"
+    COCKTAIL_UPLIFT_METRIC = "cocktail_uplift"
 
     # Dimension names
     COCKTAIL_NAME_COL = "cocktail__name"
@@ -44,6 +46,7 @@ class MenuColNames(Enum):
 
     VENUE_ID_COL = "venue_id"
     VENUE_NAME_COL = "venue__name"
+    VENUE_PREMISE_TYPE_COL = "venue__premise_type"
     PRODUCT_ID_COL = "product_id"
 
     MAX_TIME_DATE_COL = "max_time_date"
