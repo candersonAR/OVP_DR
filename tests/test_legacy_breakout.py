@@ -9,7 +9,7 @@ class TestLegacyBreakout:
     metric__sold_9le = MenuColNames.SOLD_9LE_METRIC.value
     metric__menu_placements = MenuColNames.MENU_PLACEMENTS_METRIC.value
     metric__sales_uplift = MenuColNames.SALES_UPLIFT_METRIC.value
-
+    metric__menu_placements_share = MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value
     breakout__cocktail_family = MenuColNames.COCKTAIL_FAMILY_COL.value
     breakout__brand_name = MenuColNames.BRAND_NAME_COL.value
     breakout__cocktail_group = MenuColNames.COCKTAIL_GROUP_COL.value
@@ -68,6 +68,14 @@ class TestLegacyBreakout:
 
         self._assert_simple_breakout_runs_without_errors(parameters={
             'metrics': [self.metric__sales_uplift],
+            'breakouts': [self.breakout__brand_name],
+            'periods': [self.period__q1_2024]
+        })
+
+    def test_menu_placements_share_by_brand_in_q1_2024(self):
+
+        self._assert_simple_breakout_runs_without_errors(parameters={
+            'metrics': [self.metric__menu_placements_share],
             'breakouts': [self.breakout__brand_name],
             'periods': [self.period__q1_2024]
         })

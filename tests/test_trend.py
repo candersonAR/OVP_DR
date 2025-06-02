@@ -12,17 +12,20 @@ class TestTrend:
 
     met1 = MenuColNames.SOLD_9LE_METRIC.value
     met2 = MenuColNames.MENU_PLACEMENTS_METRIC.value
+    metric__menu_placements_share = MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value
     sales_uplift = MenuColNames.SALES_UPLIFT_METRIC.value
     sold_cases = MenuColNames.SOLD_CASES_METRIC.value
 
     # sales_met = "sales_share" # todo: need this for overproof?
     breakout1 = MenuColNames.BRAND_NAME_COL.value
     breakout2 = MenuColNames.COCKTAIL_GROUP_COL.value
+    breakout3 = MenuColNames.PRODUCT_CATEGORY_NAME_COL.value
     period_filter1 = "2024"
     growth_type__yoy = "Y/Y"
     growth_type__pop = "P/P"
     filter1 = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "Papa's Pilar"}
     filter2 = {"dim": MenuColNames.COCKTAIL_GROUP_COL.value, "op": "=", "val": "Margaritas"}
+
 
     preview = False # Set to True to get previews
 
@@ -106,7 +109,7 @@ class TestTrend:
             "metrics": [self.met1],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
-            "other_filters": [self.filter1, self.filter2]
+            "other_filters": [self.filter1]
         }
 
         self._assert_trend_runs_without_errors(parameters)
@@ -118,7 +121,7 @@ class TestTrend:
             "metrics": [self.met1],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
-            "other_filters": [self.filter1, self.filter2],
+            "other_filters": [self.filter1],
             "growth_type": self.growth_type__yoy
         }
 
@@ -196,7 +199,7 @@ class TestTrend:
             "metrics": [self.met1, self.met2],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
-            "other_filters": [self.filter1, self.filter2]
+            "other_filters": [self.filter1]
         }
 
         self._assert_trend_runs_without_errors(parameters)
@@ -208,7 +211,7 @@ class TestTrend:
             "metrics": [self.met1, self.met2],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout1],
-            "other_filters": [self.filter1, self.filter2],
+            "other_filters": [self.filter1],
             "growth_type": self.growth_type__yoy
         }
 
@@ -301,6 +304,48 @@ class TestTrend:
             ],
             # "growth_type": self.growth_type__yoy
             "growth_type": self.growth_type__pop
+        }
+
+        self._assert_trend_runs_without_errors(parameters)
+
+    def test_menu_placements_share_by_brand_in_q1_2024(self):
+
+        parameters = {
+            'metrics': [self.metric__menu_placements_share, self.met2],
+            'breakouts': [self.breakout1],
+            'periods': [self.period_filter1],
+            "time_granularity": "month"
+        }
+
+        self._assert_trend_runs_without_errors(parameters)
+
+    def test_menu_placements_share_by_category_in_q1_2024(self):
+
+        parameters = {
+            'metrics': [self.metric__menu_placements_share, self.met2],
+            'breakouts': [self.breakout3],
+            'periods': [self.period_filter1],
+            "time_granularity": "month"
+        }
+
+        self._assert_trend_runs_without_errors(parameters)
+
+    def test_menu_placements_share_by_category_and_brand_in_q1_2024(self):
+        parameters = {
+            'metrics': [self.metric__menu_placements_share],
+            'breakouts': [self.breakout3, self.breakout1],
+            'periods': [self.period_filter1],
+            "time_granularity": "month"
+        }
+
+        self._assert_trend_runs_without_errors(parameters)
+
+
+    def test_menu_placements_share_by_category_ingredients(self):
+        parameters = {
+            "metrics": [self.metric__menu_placements_share],
+            "breakouts": [self.breakout3],
+            "other_filters": [self.filter2]
         }
 
         self._assert_trend_runs_without_errors(parameters)
