@@ -12,7 +12,9 @@ class TestTrend:
 
     met1 = MenuColNames.SOLD_9LE_METRIC.value
     met2 = MenuColNames.MENU_PLACEMENTS_METRIC.value
-    # sales_uplift = MenuColNames.SALES_UPLIFT_METRIC.value
+    menu_uplift = MenuColNames.MENU_UPLIFT_METRIC.value
+    cocktail_uplift = MenuColNames.COCKTAIL_UPLIFT_METRIC.value
+    single_spirit_uplift = MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value
     sold_cases = MenuColNames.SOLD_CASES_METRIC.value
 
     # sales_met = "sales_share" # todo: need this for overproof?
@@ -214,26 +216,26 @@ class TestTrend:
 
         self._assert_trend_runs_without_errors(parameters)
 
-    def test_sales_uplift_by_cocktail_group_in_2024(self):
-        """Test sales uplift by cocktail group in 2024"""
+    def test_menu_uplift_by_cocktail_group_in_2024(self):
+        """Test menu uplift by cocktail group in 2024"""
 
         parameters = {
-            "metrics": [self.sales_uplift],
+            "metrics": [self.menu_uplift],
             "periods": [self.period_filter1],
             "breakouts": [self.breakout2]
         }
 
         self._assert_trend_runs_without_errors(parameters)
 
-    def test_sales_uplift_and_sold_9le_by_brand_in_q1_2024(self):
+    def test_menu_uplift_and_sold_9le_by_brand_in_q1_2024(self):
         """
-        Test sales uplift and sold 9le by brand in q1 2024
+        Test menu uplift and sold 9le by brand in q1 2024
 
         From CON-3859
         """
 
         parameters = {
-            "metrics": [self.sales_uplift, self.met1],
+            "metrics": [self.menu_uplift, self.met1],
             "periods": [self.period_filter1],
             "other_filters": [
                 {
@@ -255,11 +257,11 @@ class TestTrend:
         
         self._assert_trend_runs_without_errors(parameters)
 
-    def test_sales_uplift_and_sold_cases_in_q1_2024_filtered_to_papas_pilar_and_miami(self):
+    def test_menu_uplift_and_sold_cases_in_q1_2024_filtered_to_papas_pilar_and_miami(self):
 
         parameters = {
             "metrics": [
-                self.sales_uplift,
+                self.menu_uplift,
                 self.sold_cases
             ],
             "periods": [
@@ -285,11 +287,11 @@ class TestTrend:
 
         self._assert_trend_runs_without_errors(parameters)
 
-    def test_sales_uplift_and_sold_cases_by_brand_name_in_2024_yoy_growth(self):
+    def test_menu_uplift_and_sold_cases_by_brand_name_in_2024_yoy_growth(self):
 
         parameters = {
             "metrics": [
-                self.sales_uplift,
+                self.menu_uplift,
                 self.sold_cases
             ],
             "time_granularity": "month",

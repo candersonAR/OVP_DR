@@ -13,7 +13,7 @@ class OverproofTemporaryAdvanceTrend(AdvanceTrend):
     # This will make it so pull_data is called to recalculate the total for sales uplift
     def get_metric_sql(self, metric):
         calculated_metrics, non_calculated_metrics = None, None
-        if metric.get("sql") and metric.get("col") or metric.get("name") == MenuColNames.SALES_UPLIFT_METRIC.value:
+        if metric.get("sql") and metric.get("col") or metric.get("name") in [MenuColNames.MENU_UPLIFT_METRIC.value, MenuColNames.COCKTAIL_UPLIFT_METRIC.value, MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value]:
             calculated_metrics = metric
         elif metric.get("col"):
             non_calculated_metrics = metric["name"]
