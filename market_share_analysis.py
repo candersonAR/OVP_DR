@@ -12,9 +12,8 @@ from skill_framework.preview import preview_skill
 from skill_framework.skills import ExportData
 from skill_framework.layouts import wire_layout
 
-# from ar_analytics import MarketShareBreakdown, MSBTemplateParameterSetup, ArUtils
-from ar_analytics import ArUtils
-from market_share_breakdown import MarketShareBreakdown, MSBTemplateParameterSetup
+from ar_analytics import ArUtils, MSBTemplateParameterSetup
+from market_share_breakdown import MarketShareBreakdown, OverproofDataProvider
 from ar_analytics.defaults import market_share_analysis_config, default_table_layout, get_table_layout_vars
 
 import jinja2
@@ -38,10 +37,11 @@ class MSACONFIG:
     subject_metric_config: Optional[str] = None
 
 DEFAULT_GLOBAL_VIEW = """
+
 [
   {
     "dim": "state_name",
-    "type": "share",
+    "type": "contribution",
     "exclude_in_mkt_size": false,
     "tab_label": "State",
     "drilldown": {
@@ -53,7 +53,11 @@ DEFAULT_GLOBAL_VIEW = """
     "dim": "supplier_name",
     "type": "share",
     "exclude_in_mkt_size": true,
-    "tab_label": "Supplier"
+    "tab_label": "Supplier", 
+    "drilldown": {
+         "dim": "brand_name",
+         "type": "contribution"
+      }
   },
   {
     "dim": "cocktail_group",
@@ -70,8 +74,19 @@ DEFAULT_GLOBAL_VIEW = """
          "dim": "brand_name",
          "type": "contribution"
       }
+  },
+  {
+    "dim": "product_category_family_name",
+    "type": "contribution",
+    "exclude_in_mkt_size": true,
+    "tab_label": "Product Family",
+    "drilldown": {
+         "dim": "product_category_name",
+         "type": "contribution"
+      }
   }
 ]
+
 """
 
 # DEFAULT_GLOBAL_VIEW = """
@@ -88,31 +103,32 @@ DEFAULT_GLOBAL_VIEW = """
 DEFAULT_MARKET_VIEW = """
 [
   {
-    "dim": "product_category_name",
+    "dim": "cocktail_style",
     "type": "share",
     "exclude_in_mkt_size": true,
-    "tab_label": "Category",
+    "tab_label": "Cocktail",
     "drilldown": {
-         "dim": "brand_name",
-         "type": "contribution"
+         "dim": "cocktail_group",
+         "type": "share"
       }
   },
   {
-    "dim": "cocktail_group",
+    "dim": "state_name",
     "type": "share",
     "exclude_in_mkt_size": true,
-    "tab_label": "Cocktail"
+    "tab_label": "State"
   }
 ]
 """
 
 DEFAULT_INCLUDE_DRIVERS = True
 
-DEFAULT_MARKET_COLS = """["state_name"]"""
+DEFAULT_MARKET_COLS = """["cocktail_style","cocktail_group"]"""
 
 DEFAULT_IMPACT_CALCS = """"""
 
 DEFAULT_DECOMPOSITION_DISPLAY_CONFIG = """
+
 {
     "Impact on Share": {
         "menu_placements_share": [
@@ -125,6 +141,7 @@ DEFAULT_DECOMPOSITION_DISPLAY_CONFIG = """
         ]
     }
 }
+
 """
 
 # DEFAULT_SUBJECT_METRIC_CONFIG = """
@@ -288,7 +305,7 @@ def market_share_analysis(parameters: SkillInput):
     env.msb_parameters["query_filters"] = updated_filters
     env.msb_parameters["dim_hierarchy"] = updated_dim_hierarchy
 
-    env.msa = MarketShareBreakdown(
+    env.msa = OverproofDataProvider(
         sql_exec=env.msb_parameters["con"],
         dim_hierarchy=env.msb_parameters["dim_hierarchy"],
         constrained_values=env.msb_parameters["constrained_values"],
@@ -558,28 +575,16 @@ if __name__ == '__main__':
         arguments=
         {
             "growth_type": "Y/Y",
-            "periods": [
-                "jul 2024",
-                "aug 2024",
-                "sep 2024"
-            ],
             "other_filters": [
                 {
                     "val": [
-                        "non-classic"
+                        "patrón"
                     ],
-                    "dim": "cocktail__style",
-                    "op": "="
-                },
-                {
-                    "val": [
-                        "new york"
-                    ],
-                    "dim": "state_name",
+                    "dim": "brand_name",
                     "op": "="
                 }
             ],
-            "metric": "menu_placements_share"
+            "periods": ["last quarter"]
         }
 )
     out = market_share_analysis(skill_input)

@@ -8,7 +8,7 @@ from skill_framework.layouts import wire_layout
 
 # from ar_analytics import AdvanceTrend, TrendTemplateParameterSetup, ArUtils
 from ar_analytics import ArUtils, TrendTemplateParameterSetup
-from temp_trend import OverproofTemporaryAdvanceTrend
+from overproof_trend import OverproofTemporaryAdvanceTrend
 from ar_analytics.defaults import trend_analysis_config, default_trend_chart_layout, default_table_layout, get_table_layout_vars
 
 from overproof_data_provider import DataProvider
@@ -206,17 +206,3 @@ def render_layout(
     viz.append(SkillVisualization(title="Metrics Table", layout=table))
 
     return viz, insights, max_response_prompt
-
-
-if __name__ == '__main__':
-    skill_input: SkillInput = trend.create_input(arguments={
-  "metrics": [
-    "sold_9le"
-  ],
-  "time_granularity": "month",
-  "breakouts": [
-    "menu_item__item_name"
-  ]
-})
-    out = trend(skill_input)
-    preview_skill(trend, out)
