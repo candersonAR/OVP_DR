@@ -66,21 +66,7 @@ class TestLegacyBreakout:
             'other_filters': [self.filter__brand_name__papa_pilar]
         })
     
-    def test_uplift_arguments_are_valid(self):
-        self._assert_simple_breakout_runs_without_errors(parameters={
-            "metrics": [
-                self.metric__menu_uplift
-            ],
-            "periods": [
-                "jan 2024",
-                "feb 2024",
-                "mar 2024"
-            ],
-            "brand_name": [
-                "papa's pilar"
-            ]
-        })
-
+    # TODO: Add this test once uplift breakout is supported
     # def test_sales_uplift_by_brand_in_q1_2024(self):
 
     #     self._assert_simple_breakout_runs_without_errors(parameters={

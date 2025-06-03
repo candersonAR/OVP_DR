@@ -148,10 +148,11 @@ class DataProvider(object):
                 depl_dims = [b for b in breakouts if b not in cocktail_dims and b not in time_period_dims]
                 uplift_common_dims = [MenuColNames.VENUE_ID_COL.value] + time_period_dims + depl_dims
                 depl_filters = [f for f in filters if f["col"] not in self.cross_dims + [MenuColNames.PRODUCT_ID_COL.value]]
-                
+                default_9le_metric = [{'name': 'sold_9le', 'label': 'Sold 9le', 'sql': None, 'col': 'sold_9le', 'metric_type': None, 'is_share': None, 'fmt': ',.2f', 'growth_fmt': ',.2%', 'hide_percentage_change': False}]
+               
                 start_time = time.time()
                 depletions_df = pull_data(
-                    metrics=depletion_metrics if depletion_metrics else [{"name": MenuColNames.SOLD_9LE_METRIC.value}],
+                    metrics= default_9le_metric,
                     breakouts=uplift_common_dims,
                     filters=depl_filters,
                     query_row_limit=10000000,

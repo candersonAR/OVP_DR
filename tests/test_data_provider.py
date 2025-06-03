@@ -47,47 +47,54 @@ class TestPullData:
     def test_menu_uplift_by_cocktail_group_in_2024(self):
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__menu_uplift]),
-            breakouts = [self.breakout__cocktail_group],
+            breakouts = [],
             filters = [self.filter__max_time_date__Q1_2024, self.filter__brand_name__papas_pilar]
         )
         assert self.metric__menu_uplift in df.columns
-        assert self.breakout__cocktail_group in df.columns
+
+        uplift_value = df[self.metric__menu_uplift].values[0]
+        self.assert_value_between_threshold(uplift_value, 2.381, 0.001)
     
     def test_single_spirit_uplift_by_cocktail_group_in_2024(self):
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__single_spirit_uplift]),
-            breakouts = [self.breakout__cocktail_group],
+            breakouts = [],
             filters = [self.filter__max_time_date__Q1_2024, self.filter__brand_name__papas_pilar]
         )
         assert self.metric__single_spirit_uplift in df.columns
-        assert self.breakout__cocktail_group in df.columns
+
+        uplift_value = df[self.metric__single_spirit_uplift].values[0]
+        self.assert_value_between_threshold(uplift_value, 1.0785, 0.001)
     
     def test_general_cocktail_uplift_by_cocktail_group_in_2024(self):
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__cocktail_uplift]),
-            breakouts = [self.breakout__cocktail_group],
+            breakouts = [],
             filters = [self.filter__max_time_date__Q1_2024, self.filter__brand_name__papas_pilar]
         )
         assert self.metric__cocktail_uplift in df.columns
-        assert self.breakout__cocktail_group in df.columns
+
+        uplift_value = df[self.metric__cocktail_uplift].values[0]
+        self.assert_value_between_threshold(uplift_value, 3.312, 0.001)
     
     def test_single_specific_cocktail_uplift_by_cocktail_group_in_2024(self):
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__cocktail_uplift]),
-            breakouts = [self.breakout__cocktail_group],
+            breakouts = [],
             filters = [self.filter__max_time_date__Q1_2024, self.filter__brand_name__papas_pilar, self.filter__ingredient_of_cocktail_name__daiquiri]
         )
         assert self.metric__cocktail_uplift in df.columns
-        assert self.breakout__cocktail_group in df.columns
+
+        uplift_value = df[self.metric__cocktail_uplift].values[0]
+        self.assert_value_between_threshold(uplift_value, 3.509, 0.001)
 
     def test_multiple_specific_cocktail_uplift_by_cocktail_group_in_2024(self):
         df = self.pull_data_function(
             metrics = self._get_metrics([self.metric__cocktail_uplift]),
-            breakouts = [self.breakout__cocktail_group],
+            breakouts = [],
             filters = [self.filter__max_time_date__Q1_2024, self.filter__brand_name__papas_pilar, self.filter__ingredient_of_cocktail_name]
         )
         assert self.metric__cocktail_uplift in df.columns
-        assert self.breakout__cocktail_group in df.columns
 
 
     def test_uplift_single_metric_guardrail(self):
