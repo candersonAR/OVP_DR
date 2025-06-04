@@ -24,8 +24,8 @@ class TestLegacyBreakout:
 
     period__q1_2024 = "Q1 2024"
 
-    filter__supplier_name__diageo = {"dim": MenuColNames.SUPPLIER_NAME_COL.value, "op": "like", "val": ["diageo"]}
-    filter__brand_name__heineken = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "like", "val": ["heineken"]}
+    filter__supplier_name__diageo = {"dim": MenuColNames.SUPPLIER_NAME_COL.value, "op": "=", "val": ["diageo usa"]}
+    filter__brand_name__heineken = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": ["heineken brewing"]}
     filter__brand_name__papa_pilar = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": ["Papa's Pilar"]}
     filter__brand_name__mijenta = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": ["mijenta tequila"]}
     filter__brand_name__parini = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": ["parini"]}
@@ -120,11 +120,44 @@ class TestLegacyBreakout:
 
         })
 
+
+        # {
+        # "breakouts": [
+        #     "venue__category_name"
+        # ],
+        # "metrics": [
+        #     "menu_uplift"
+        # ],
+        # "other_filters": [
+        #     {
+        #     "val": [
+        #         "diageo usa"
+        #     ],
+        #     "dim": "supplier_name",
+        #     "op": "="
+        #     }
+        # ]
+        # }
+
+
     def test_uplift_supplier_breakout_by_venue_category(self):
         self._assert_simple_breakout_runs_without_errors(parameters={
-            'metrics': [self.metric__menu_uplift],
-            'breakouts': [self.breakout__venue_category],
-            'other_filters': [self.filter__supplier_name__diageo]
+            "breakouts": [
+                "venue__category_name"
+            ],
+            "metrics": [
+                "menu_uplift"
+            ],
+            "periods": [],
+            "other_filters": [
+                {
+                "val": [
+                    "diageo usa"
+                ],
+                "dim": "supplier_name",
+                "op": "="
+                }
+            ]
         })
 
     def test_menu_placements_share_by_brand_in_q1_2024(self):
