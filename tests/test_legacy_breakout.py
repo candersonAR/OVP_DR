@@ -14,6 +14,7 @@ class TestLegacyBreakout:
 
     metric__menu_placements_share = MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value
 
+    breakout__cocktail_name = MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value
     breakout__cocktail_family = MenuColNames.COCKTAIL_FAMILY_COL.value
     breakout__brand_name = MenuColNames.BRAND_NAME_COL.value
     breakout__cocktail_group = MenuColNames.COCKTAIL_GROUP_COL.value
@@ -69,12 +70,13 @@ class TestLegacyBreakout:
         })
     
     # TODO: Add this test once uplift breakout is supported
-    # def test_sales_uplift_by_brand_in_q1_2024(self):
-    #     self._assert_simple_breakout_runs_without_errors(parameters={
-    #         'metrics': [self.metric__sales_uplift],
-    #         'breakouts': [self.breakout__brand_name],
-    #         'periods': [self.period__q1_2024]
-    #     })
+    def test_sales_uplift_by_cocktail_name_in_q1_2024(self):
+        self._assert_simple_breakout_runs_without_errors(parameters={
+            'metrics': [self.metric__menu_uplift],
+            'breakouts': [self.breakout__cocktail_name],
+            'periods': [self.period__q1_2024],
+            'other_filters': [self.filter__brand_name__papa_pilar]
+        })
 
 
     def test_menu_placements_share_by_brand_in_q1_2024(self):

@@ -221,16 +221,17 @@ class TestTrend:
         self._assert_trend_runs_without_errors(parameters)
 
     # TODO: Add this test once uplift breakout is supported
-    # def test_menu_uplift_by_cocktail_group_in_2024(self):
-    #     """Test menu uplift by cocktail group in 2024"""
+    def test_menu_uplift_by_cocktail_group_in_2024(self):
+        """Test menu uplift by cocktail group in 2024"""
 
-    #     parameters = {
-    #         "metrics": [self.menu_uplift],
-    #         "periods": [self.period_filter1],
-    #         "breakouts": [self.breakout2]
-    #     }
+        parameters = {
+            "metrics": [self.metric__menu_uplift],
+            "periods": [self.period_filter1],
+            "breakouts": [self.breakout2],
+            "other_filters": [self.filter1]
+        }
 
-    #     self._assert_trend_runs_without_errors(parameters)
+        self._assert_trend_runs_without_errors(parameters)
 
     def test_menu_uplift_and_sold_9le_by_brand_in_q1_2024(self):
         """

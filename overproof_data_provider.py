@@ -115,9 +115,12 @@ class DataProvider(object):
             if sales_uplift_metrics:
                 print(f"Filters: {filters}")
                 filter_columns = [f["col"] for f in filters] if filters else []
+                # Defaults to sold 9le if no depletion metrics are provided
+                depletion_metrics = [{"name": MenuColNames.SOLD_9LE_METRIC.value}]
                 brand_or_supplier_present = any(col in filter_columns for col in [MenuColNames.BRAND_NAME_COL.value, MenuColNames.SUPPLIER_NAME_COL.value])
-                
-                if not brand_or_supplier_present:
+
+                    
+                if not breakouts and not brand_or_supplier_present:
                     raise exit_with_status(f"Either {MenuColNames.BRAND_NAME_COL.value} or {MenuColNames.SUPPLIER_NAME_COL.value} is required to calculate sales uplift. Please ask the user to provide one of the two.")
 
                 if any(b in [MenuColNames.BRAND_NAME_COL.value, MenuColNames.SUPPLIER_NAME_COL.value] for b in breakouts):
@@ -146,14 +149,13 @@ class DataProvider(object):
                 
                 # 1. Pull depletion data ONCE (remove cocktail filters)
                 depl_dims = [b for b in breakouts if b not in cocktail_dims and b not in time_period_dims]
-                uplift_common_dims = [MenuColNames.VENUE_ID_COL.value] + time_period_dims + depl_dims
+                uplift_common_dims = [MenuColNames.VENUE_ID_COL.value] + time_period_dims
                 depl_filters = [f for f in filters if f["col"] not in self.cross_dims + [MenuColNames.PRODUCT_ID_COL.value]]
-                default_9le_metric = [{'name': 'sold_9le', 'label': 'Sold 9le', 'sql': None, 'col': 'sold_9le', 'metric_type': None, 'is_share': None, 'fmt': ',.2f', 'growth_fmt': ',.2%', 'hide_percentage_change': False}]
-               
+                
                 start_time = time.time()
                 depletions_df = pull_data(
-                    metrics= default_9le_metric,
-                    breakouts=uplift_common_dims,
+                    metrics=depletion_metrics,
+                    breakouts=uplift_common_dims + depl_dims,
                     filters=depl_filters,
                     query_row_limit=10000000,
                     dataset_id=self.depletion_dataset
@@ -165,16 +167,16 @@ class DataProvider(object):
                 self.query_count += 1
                 
                 # Aggregate depletion data by venue
-                depl_agg = depletions_df.groupby(uplift_common_dims).agg({
-                    MenuColNames.SOLD_9LE_METRIC.value: 'sum'
-                }).reset_index()
+                depl_metric_names = [m.get("name") for m in depletion_metrics]
+                depl_agg_dict = {k: v for k, v in self.depletions_agg_dict.items() if k in depl_metric_names}
+                depl_agg = depletions_df.groupby(uplift_common_dims).agg(depl_agg_dict).reset_index()
                 
                 # 2. Pull menu data WITH brand (for menu mention, single spirit, cocktail)
                 start_time = time.time()
+                required_menu_dims = uplift_common_dims + cocktail_dims
                 menu_with_brand_df = pull_data(
                     metrics=[],
-                    breakouts=[MenuColNames.VENUE_ID_COL.value, MenuColNames.PRODUCT_ID_COL.value, 
-                            MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] + time_period_dims + cocktail_dims,
+                    breakouts= [MenuColNames.PRODUCT_ID_COL.value] + required_menu_dims,
                     filters=filters,
                     query_row_limit=10000000,
                     dataset_id=self.menu_dataset
@@ -210,7 +212,7 @@ class DataProvider(object):
                 start_time = time.time()
                 menu_without_brand_df = pull_data(
                     metrics=[],
-                    breakouts=uplift_common_dims + cocktail_dims,
+                    breakouts=required_menu_dims,
                     filters=just_in_dist_filters,
                     query_row_limit=10000000,
                     dataset_id=self.menu_dataset
@@ -222,72 +224,72 @@ class DataProvider(object):
                 self.query_count += 1
                 
                 # Calculate just_in_distribution (denominator - shared for all metrics)
-                just_in_dist_venues = set(menu_without_brand_df[MenuColNames.VENUE_ID_COL.value].unique())
-                
                 def calculate_avg_depletion(venue_set, depl_agg, group_cols=None):
                     venue_depl = depl_agg[depl_agg[MenuColNames.VENUE_ID_COL.value].isin(venue_set)]
                     if group_cols:
-                        # Group by time period dimensions if they exist
-                        grouped = venue_depl.groupby(group_cols)[MenuColNames.SOLD_9LE_METRIC.value].agg(['count', 'mean']).reset_index()
+                        # Group by dimensions if they exist
+                        grouped = venue_depl.groupby(group_cols)[depl_metric_names].agg(['count', 'mean']).reset_index()
                         return grouped['count'].tolist(), grouped['mean'].tolist(), grouped[group_cols].values.tolist()
                     else:
                         count = len(venue_depl)
-                        avg = venue_depl[MenuColNames.SOLD_9LE_METRIC.value].mean() if count > 0 else 0
-                        return [count], [avg], [None]
-                
-                # Calculate averages grouped by time period if it exists
-                just_in_dist_counts, just_in_dist_avgs, time_periods = calculate_avg_depletion(just_in_dist_venues, depl_agg, time_period_dims if time_period_dims else None)
-                
-                # Calculate metric-specific numerator
-                match uplift_metric_type:
-                    case MenuColNames.MENU_UPLIFT_METRIC.value:
-                        # Menu mention venues (all venues with brand)
-                        numerator_venues = set(menu_with_brand_df[MenuColNames.VENUE_ID_COL.value].unique())
-                        numerator_counts, numerator_avgs, _ = calculate_avg_depletion(numerator_venues, depl_agg, time_period_dims if time_period_dims else None)
-                        
-                    case MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value:
-                        # Single spirit venues (venues with brand but NOT in cocktails)
-                        single_spirit_df = menu_with_brand_df[menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] == "None"]
-                        venues_with_cocktails = set(menu_with_brand_df[menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] != "None"][MenuColNames.VENUE_ID_COL.value].unique())
-                        numerator_venues = set(single_spirit_df[MenuColNames.VENUE_ID_COL.value].unique()) - venues_with_cocktails
-                        numerator_counts, numerator_avgs, _ = calculate_avg_depletion(numerator_venues, depl_agg, time_period_dims if time_period_dims else None)
-                        
-                    case MenuColNames.COCKTAIL_UPLIFT_METRIC.value:
-                        # Cocktail venues
-                        cocktail_filter_exists = MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value in [f["col"] for f in filters]
-                        numerator_venues = set(menu_with_brand_df[menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] != "None"][MenuColNames.VENUE_ID_COL.value].unique())
-                        numerator_counts, numerator_avgs, _ = calculate_avg_depletion(numerator_venues, depl_agg, time_period_dims if time_period_dims else None)
+                        avg = venue_depl[depl_metric_names].mean() if count > 0 else [0]
+                        return count, avg, None
                 
                 # Calculate uplift for each time period
                 result_rows = []
-                for i in range(len(just_in_dist_avgs)):
-                    just_in_dist_avg = just_in_dist_avgs[i]
-                    numerator_avg = numerator_avgs[i]
-                    time_period = time_periods[i]
+                
+                # Get unique values for the single dimension if it exists
+                dimension_values = []
+                if len(cocktail_dims) == 1:
+                    dimension = cocktail_dims[0]
+                    dimension_values = menu_with_brand_df[dimension].unique().tolist()
+                else:
+                    dimension_values = [None]
+                
+                # For each dimension value, calculate uplift separately
+                for dim_value in dimension_values:
+                    if dim_value == 'None':
+                        continue
+                    
+                    breakout_menu_with_brand_df = menu_with_brand_df[menu_with_brand_df[dimension] == dim_value]
+                    breakout_menu_without_brand_df = menu_without_brand_df[menu_without_brand_df[dimension] == dim_value]
+                    
+                    just_in_dist_venues = set(breakout_menu_without_brand_df[MenuColNames.VENUE_ID_COL.value].unique())
+                    just_in_dist_counts, just_in_dist_avgs, _ = calculate_avg_depletion(just_in_dist_venues, depl_agg, time_period_dims if time_period_dims else None)
+
+                    # Calculate numerator for this dimension value
+                    match uplift_metric_type:
+                        case MenuColNames.MENU_UPLIFT_METRIC.value:
+                            numerator_venues = set(breakout_menu_with_brand_df[MenuColNames.VENUE_ID_COL.value].unique())
+                        case MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value:
+                            single_spirit_df = breakout_menu_with_brand_df[breakout_menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] == "None"]
+                            venues_with_cocktails = set(breakout_menu_with_brand_df[breakout_menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] != "None"][MenuColNames.VENUE_ID_COL.value].unique())
+                            numerator_venues = set(single_spirit_df[MenuColNames.VENUE_ID_COL.value].unique()) - venues_with_cocktails
+                        case MenuColNames.COCKTAIL_UPLIFT_METRIC.value:
+                            numerator_venues = set(breakout_menu_with_brand_df[breakout_menu_with_brand_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] != "None"][MenuColNames.VENUE_ID_COL.value].unique())
+                    
+                    # Calculate numerator average for this dimension value
+                    numerator_counts, numerator_avgs, _ = calculate_avg_depletion(numerator_venues, depl_agg, time_period_dims if time_period_dims else None)
                     
                     # Calculate uplift
-                    uplift_value = numerator_avg / just_in_dist_avg if just_in_dist_avg > 0 else 0
+                    uplift_value = [numerator_avg / just_in_dist_avg if just_in_dist_avg > 0 else 0 for numerator_avg, just_in_dist_avg in zip(numerator_avgs, just_in_dist_avgs)]
                     
                     # Create row data
-                    row_data = {uplift_metric_type: uplift_value}
+                    row_data = {uplift_metric_type: uplift_value[0]}
                     
                     # Add time period dimensions if they exist
-                    if time_period:
-                        for dim, val in zip(time_period_dims, time_period):
-                            row_data[dim] = val
+                    # if time_period:
+                    #     for dim, val in zip(time_period_dims, time_period):
+                    #         row_data[dim] = val
                     
                     # Add other dimensions
-                    for dim in depl_dims:
-                        if dim in breakouts:
-                            row_data[dim] = breakouts[breakouts.index(dim)]
+                    # for dim in depl_dims:
+                    #     if dim in breakouts:
+                    #         row_data[dim] = breakouts[breakouts.index(dim)]
                     
-                    # Add cocktail dimensions from menu data
-                    if cocktail_dims:
-                        # Get unique values for each cocktail dimension from menu data
-                        for dim in cocktail_dims:
-                            unique_values = menu_with_brand_df[dim].unique()
-                            if len(unique_values) > 0:
-                                row_data[dim] = unique_values[0]  # Take first value as default
+                    # Add dimension value if it exists
+                    if dim_value is not None:
+                        row_data[dimension] = dim_value
                     
                     if "date_column" in breakouts:
                         row_data["date_column"] = breakouts[breakouts.index("date_column")]
@@ -298,8 +300,9 @@ class DataProvider(object):
                 result_df = pd.DataFrame(result_rows)
                 
                 # Sort and limit if needed
+                result_df = result_df.sort_values(by=uplift_metric_type, ascending=False)
+                
                 if query_row_limit:
-                    result_df = result_df.sort_values(by=uplift_metric_type, ascending=False)
                     result_df = result_df.head(query_row_limit)
                 
                 dfs.append(result_df)
