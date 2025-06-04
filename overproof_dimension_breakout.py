@@ -1,7 +1,7 @@
 
 from ar_analytics import BreakoutAnalysis
 from overproof_utilities import OverproofSharedFn, calculate_market_share_denominator 
-from ar_analytics.helpers.utils import is_filter_token
+from ar_analytics.helpers.utils import is_filter_token, HIGHEST_GROWING, FASTEST_GROWING, FASTEST_DECLINING, HIGHEST_DECLINING, BIGGEST, SMALLEST
 import pandas as pd
 
 class OverproofBreakoutAnalysis(BreakoutAnalysis):
@@ -9,6 +9,78 @@ class OverproofBreakoutAnalysis(BreakoutAnalysis):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.helper = OverproofSharedFn()
+        self.rank_share_within_by_market = False
+
+    def get_sort_details(self, period_filters, breakout, special_tokens, top_n_direction):
+        breakout_token = [t for t in special_tokens if t['col'] == breakout]
+
+        sort_dir = top_n_direction
+        sort_metric = self.first_metric
+
+        if self.sort_rule:
+            sort_hint = self.sort_rule
+        elif breakout_token:
+            sort_hint = self.match_token(str(breakout_token[0]['val']))
+        else:
+            sort_hint = "None"
+
+        self.sort_hint = sort_hint
+        # only change defaults for following conditions
+        if len(period_filters) > 1:
+            if self.match_token(FASTEST_GROWING) in sort_hint:
+                if self.first_metric in self.hide_pct_mets:
+                    sort_metric = sort_metric + "_diff"
+                else:
+                    sort_metric = sort_metric + "_diff_pct"
+                sort_dir = "top"
+            elif self.match_token(HIGHEST_GROWING) in sort_hint:
+                sort_metric = sort_metric + "_diff"
+                sort_dir = "top"
+            elif self.match_token(FASTEST_DECLINING) in sort_hint:
+                if self.first_metric in self.hide_pct_mets:
+                    sort_metric = sort_metric + "_diff"
+                else:
+                    sort_metric = sort_metric + "_diff_pct"
+                sort_dir = "bottom"
+            elif self.match_token(HIGHEST_DECLINING) in sort_hint:
+                sort_metric = sort_metric + "_diff"
+                sort_dir = "bottom"
+            elif self.match_token(BIGGEST) in sort_hint:
+                sort_metric = sort_metric + "_curr"
+                sort_dir = "top"
+            elif self.match_token(SMALLEST) in sort_hint:
+                sort_metric = sort_metric + "_curr"
+                sort_dir = "bottom"
+            else:
+                sort_metric = sort_metric + "_curr"
+        else:
+            if self.match_token(BIGGEST) in sort_hint:
+                sort_metric = sort_metric
+                sort_dir = "top"
+            elif self.match_token(SMALLEST) in sort_hint:
+                sort_metric = sort_metric
+                sort_dir = "bottom"
+            else:
+                sort_metric = sort_metric
+
+        if self.is_share_first:
+
+            # if share is the first metric, and sort by diff then use share diff
+            if sort_metric.endswith("_diff") or sort_metric.endswith("_diff_pct"):
+                sort_metric = f"{self.first_share_metric}_diff"
+            elif breakout in self.sort_by_denom:
+                #### SVCS-86: Sort on underlying metric overwrite
+                # for share within metrics, sort by the denominator or share metric
+                if self.rank_share_within_by_market:
+                    sort_metric = f"{sort_metric}__market"
+                else:
+                    sort_metric = self.first_share_metric
+                ####
+
+        sort_asc = (sort_dir.lower() == 'bottom')
+        print(
+            f"breakout_token: {breakout_token}, breakout: {breakout}, sort_hint: {sort_hint}, sort_metric: {sort_metric}, sort_asc: {sort_asc}, sort_dir: {sort_dir}")
+        return sort_metric, sort_asc
 
     # Overwriting so that the share for count metrics is calculated correctly for count metrics.
     def get_share_totals(self, table, metrics, breakouts, period_filters, query_filters, table_specific_filters, view):
