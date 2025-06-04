@@ -47,7 +47,9 @@ class MenuColNames(Enum):
 
     VENUE_ID_COL = "venue_id"
     VENUE_NAME_COL = "venue__name"
+    VENUE_CATEGORY_COL = "venue__category_name"
     VENUE_PREMISE_TYPE_COL = "venue__premise_type"
+    CHAIN_NAME_COL = "chain_name"
     PRODUCT_ID_COL = "product_id"
 
     MAX_TIME_DATE_COL = "max_time_date"

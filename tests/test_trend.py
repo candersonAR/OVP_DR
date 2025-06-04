@@ -244,13 +244,7 @@ class TestTrend:
             "metrics": [self.metric__menu_uplift, self.met1],
             "periods": [self.period_filter1],
             "other_filters": [
-                {
-                    "val": [
-                        "papa's pilar"
-                    ],
-                    "dim": "brand_name",
-                    "op": "="
-                },
+                self.filter1,
                 {
                     "val": [
                         "miami"
@@ -258,9 +252,8 @@ class TestTrend:
                     "dim": "venue__city",
                     "op": "="
                 }
-            ]
+            ] 
         }
-        
         self._assert_trend_runs_without_errors(parameters)
 
     def test_menu_uplift_and_sold_cases_in_q1_2024_filtered_to_papas_pilar_and_miami(self):
@@ -274,13 +267,7 @@ class TestTrend:
                 "q1 2024"
             ],
             "other_filters": [
-                {
-                    "val": [
-                        "papa's pilar"
-                    ],
-                    "dim": "brand_name",
-                    "op": "="
-                },
+                self.filter1,
                 {
                     "val": [
                         "miami"
