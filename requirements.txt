@@ -143,7 +143,7 @@ pillow==11.0.0
     # via
     #   -c platform_constraints.txt
     #   matplotlib
-pluggy==1.5.0
+pluggy==1.6.0
     # via pytest
 pydantic==2.8.2
     # via
@@ -157,12 +157,13 @@ pydantic-core==2.20.1
 pygments==2.18.0
     # via
     #   -c platform_constraints.txt
+    #   pytest
     #   rich
 pyparsing==3.0.9
     # via
     #   -c platform_constraints.txt
     #   matplotlib
-pytest==8.3.5
+pytest==8.4.0
     # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via
@@ -189,7 +190,7 @@ rich==14.0.0
     # via
     #   rich-toolkit
     #   typer
-rich-toolkit==0.14.4
+rich-toolkit==0.14.7
     # via fastapi-cli
 sgqlc==16.4
     # via
@@ -225,7 +226,7 @@ starlette==0.46.2
     # via fastapi
 tomli==2.2.1
     # via pytest
-typer==0.15.3
+typer==0.16.0
     # via fastapi-cli
 typing-extensions==4.12.2
     # via
@@ -239,7 +240,7 @@ typing-extensions==4.12.2
     #   rich-toolkit
     #   typer
     #   uvicorn
-uvicorn[standard]==0.34.2
+uvicorn[standard]==0.34.3
     # via
     #   fastapi
     #   fastapi-cli
