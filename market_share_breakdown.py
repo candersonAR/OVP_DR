@@ -32,9 +32,8 @@ class OverproofDataProvider(MarketShareBreakdown):
         query_filters = [f for f in query_filters if f['col'] != subject_dim]
         if len(subject_filters) > 1:
             subject_dim_label = self.dim_props.get(subject_dim, {}).get('label', subject_dim)
-            self.notes.append(
-                f"Analysis focuses on the subject {subject_dim_label} '{subject_member}' only. You have been provided only limited facts. the user has a more complete table presented to them. Only respond using facts presented in the data above, let the user know more data might be presented on the table or chart on the screen.")
-
+            exit_with_status(f"Multiple subject filters are not supported. Ask they user to provide a single subject filter for the {subject_dim_label} dimension or adjust their query.")
+        
         query_filters.append(subject_filter)
 
         subject_member = subject_member.lower()
