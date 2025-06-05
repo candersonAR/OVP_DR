@@ -15,9 +15,14 @@ class MenuColNames(Enum):
     MENU_PLACEMENTS_SHARE_METRIC = "menu_placements_share"
     SOLD_9LE_METRIC = "sold_9le"
     SOLD_CASES_METRIC = "sold_cases"
+
     MENU_UPLIFT_METRIC = "menu_uplift"
     SINGLE_SPIRIT_UPLIFT_METRIC = "single_spirit_uplift"
     COCKTAIL_UPLIFT_METRIC = "cocktail_uplift"
+
+    UPLIFT_PERFORMANCE_MENU_MENTIONS_METRIC = "menu_mentions"
+    UPLIFT_PERFORMANCE_VPO_WITH_METRIC = "vpo_with"
+    UPLIFT_PERFORMANCE_VPO_WITHOUT_METRIC = "vpo_without"
 
     # Dimension names
     COCKTAIL_NAME_COL = "cocktail__name"

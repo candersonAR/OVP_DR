@@ -112,13 +112,14 @@ class TestLegacyBreakout:
             'other_filters': [self.filter__supplier_name__diageo]
         })
     
-    def test_uplift_brand_breakout_by_venue_category(self):
-        self._assert_simple_breakout_runs_without_errors(parameters={
-            'metrics': [self.metric__menu_uplift],
-            'breakouts': [self.breakout__venue_category],
-            'other_filters': [self.filter__brand_name__heineken]
+    # TODO: Find depletion data to test this against
+    # def test_uplift_brand_breakout_by_venue_category(self):
+    #     self._assert_simple_breakout_runs_without_errors(parameters={
+    #         'metrics': [self.metric__menu_uplift],
+    #         'breakouts': [self.breakout__venue_category],
+    #         'other_filters': [self.filter__brand_name__heineken]
 
-        })
+    #     })
 
 
         # {
@@ -167,3 +168,11 @@ class TestLegacyBreakout:
             'periods': [self.period__q1_2024]
         })
     
+
+    def test_cocktail_uplift_for_researcher(self):
+        self._assert_simple_breakout_runs_without_errors(parameters={
+            'metrics': [self.metric__cocktail_uplift],
+            'breakouts': [self.breakout__cocktail_name],
+            'other_filters': [self.filter__brand_name__papa_pilar],
+            'periods': [self.period__q1_2024]
+        })

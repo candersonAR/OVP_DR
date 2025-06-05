@@ -36,6 +36,7 @@ class DataProvider(object):
         ]
         # todo: sales uplift
         self.sales_uplift_metrics = [MenuColNames.COCKTAIL_UPLIFT_METRIC.value, MenuColNames.MENU_UPLIFT_METRIC.value, MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value]
+        self.uplift_performance_metrics = [MenuColNames.UPLIFT_PERFORMANCE_MENU_MENTIONS_METRIC.value, MenuColNames.UPLIFT_PERFORMANCE_VPO_WITH_METRIC.value, MenuColNames.UPLIFT_PERFORMANCE_VPO_WITHOUT_METRIC.value]
         # joining dimensions (lowest common granularity) between menu and depletions data
         self.common_dims = [MenuColNames.VENUE_ID_COL.value, MenuColNames.PRODUCT_ID_COL.value]
         self.menu_metrics = [MenuColNames.MENU_PLACEMENTS_METRIC.value, MenuColNames.VENUE_PLACEMENTS_METRIC.value]
@@ -65,6 +66,7 @@ class DataProvider(object):
         menu_metrics = [m for m in metrics if m.get("name") in self.menu_metrics]
         depletion_metrics = [m for m in metrics if m.get("name") in self.depletions_metrics]
         sales_uplift_metrics = [m for m in metrics if m.get("name") in self.sales_uplift_metrics]
+        uplift_performance_metrics = [m for m in metrics if m.get("name") in self.uplift_performance_metrics]
 
         if filters:
             cocktail_filter_dims = [f["col"] for f in filters if f["col"] in self.cross_dims]
@@ -79,6 +81,7 @@ class DataProvider(object):
         time_period_dims = [d for d in breakouts if d in self.max_time_dimensions]
 
         is_cross_query = sales_uplift_metrics or (depletion_metrics and (cocktail_dims or cocktail_filter_dims))
+        is_uplift_performance_query = sales_uplift_metrics and uplift_performance_metrics
 
         dfs = []
         if menu_metrics:
@@ -167,6 +170,9 @@ class DataProvider(object):
                 print(f"Depletion data - total_rows: {len(depletions_df)} with time: {exec_time:.2f}s")
                 self.query_timing += np.round(exec_time, 2)
                 self.query_count += 1
+
+                if depletions_df.empty:
+                    raise exit_with_status(f"No depletion data found using the given filters: {depl_filters}. Please ask the user to provide a different combination of filters.")
                 
                 # Aggregate depletion data by venue
                 depl_metric_names = [m.get("name") for m in default_9le_metric]
@@ -189,6 +195,9 @@ class DataProvider(object):
                 self.query_timing += np.round(exec_time, 2)
                 self.query_count += 1
                 
+                if menu_with_brand_df.empty:
+                    raise exit_with_status(f"No menu data found for the specified brand using the given filters: {filters}. Please ask the user to provide a different combination of filters.")
+
                 # 3. Pull venues WITHOUT brand for just_in_distribution
                 # Remove brand/supplier filters and add negated versions
                 just_in_dist_filters = [f for f in filters if f["col"] not in [MenuColNames.BRAND_NAME_COL.value, MenuColNames.SUPPLIER_NAME_COL.value, MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value]]
@@ -224,6 +233,9 @@ class DataProvider(object):
                 print(f"Menu without brand - total_rows: {len(menu_without_brand_df)} with time: {exec_time:.2f}s")
                 self.query_timing += np.round(exec_time, 2)
                 self.query_count += 1
+
+                if menu_without_brand_df.empty:
+                    raise exit_with_status(f"No menu data found for just in distribution using the given filters: {filters}. Please ask the user to provide a different combination of filters.")
             
                 # Calculate uplift for each time period
                 result_rows = []
@@ -240,7 +252,7 @@ class DataProvider(object):
                         avg = venue_depl[depl_metric_names].mean() if count > 0 else [0]
                         return count, avg, None
                 
-                def create_row_data(time_periods, just_in_dist_avgs, numerator_avgs, numerator_time_periods, dim_value=None):
+                def create_row_data(time_periods, just_in_dist_avgs, numerator_avgs, numerator_counts, numerator_time_periods, dim_value=None):
                     # Just in dist time periods and numerator time periods may be different, so we need to only use the time periods that are present in both
                     if time_periods:
                         # Create dictionaries mapping time periods to their respective averages
@@ -269,7 +281,11 @@ class DataProvider(object):
                     else:
                         # Calculate uplift without time periods
                         uplift_value = [numerator_avg / just_in_dist_avg if just_in_dist_avg > 0 else 0 for numerator_avg, just_in_dist_avg in zip(numerator_avgs, just_in_dist_avgs)]
-                        row_data = {uplift_metric_type: uplift_value[0]}
+                        if is_uplift_performance_query:
+                            row_data = {MenuColNames.UPLIFT_PERFORMANCE_MENU_MENTIONS_METRIC.value: numerator_counts, MenuColNames.UPLIFT_PERFORMANCE_VPO_WITH_METRIC.value: numerator_avgs[0], MenuColNames.UPLIFT_PERFORMANCE_VPO_WITHOUT_METRIC.value: just_in_dist_avgs[0], uplift_metric_type: uplift_value[0]}
+                        else:
+                            row_data = {uplift_metric_type: uplift_value[0]}
+
                         if dim_value is not None:
                             row_data[dimension] = dim_value
                         
@@ -285,6 +301,9 @@ class DataProvider(object):
                     dimension_values = []
 
                 # If no dimension values are provided, calculate uplift without filtering venues by dimension value
+                # just_in_dist_venues = set(menu_without_brand_df[MenuColNames.VENUE_ID_COL.value].unique())
+                # just_in_dist_counts, just_in_dist_avgs, time_periods = calculate_avg_depletion(just_in_dist_venues, depl_agg, time_period_dims if time_period_dims else None)
+
                 if not dimension_values:
                     just_in_dist_venues = set(menu_without_brand_df[MenuColNames.VENUE_ID_COL.value].unique())
                     just_in_dist_counts, just_in_dist_avgs, time_periods = calculate_avg_depletion(just_in_dist_venues, depl_agg, time_period_dims if time_period_dims else None)
@@ -305,17 +324,18 @@ class DataProvider(object):
                     # Calculate numerator average for this dimension value
                     numerator_counts, numerator_avgs, numerator_time_periods = calculate_avg_depletion(numerator_venues, depl_agg, time_period_dims if time_period_dims else None)
                     
-                    create_row_data(time_periods, just_in_dist_avgs, numerator_avgs, numerator_time_periods, dim_value=None)
+                    create_row_data(time_periods, just_in_dist_avgs, numerator_avgs, numerator_counts, numerator_time_periods, dim_value=None)
 
                 # If dimension values are provided, calculate uplift for each dimension value separately
                 else:
                     for dim_value in dimension_values: 
                         breakout_menu_with_brand_df = menu_with_brand_df[menu_with_brand_df[dimension] == dim_value]
                         breakout_menu_without_brand_df = menu_without_brand_df[menu_without_brand_df[dimension] == dim_value]
-                        
+
                         just_in_dist_venues = set(breakout_menu_without_brand_df[MenuColNames.VENUE_ID_COL.value].unique())
                         just_in_dist_counts, just_in_dist_avgs, time_periods = calculate_avg_depletion(just_in_dist_venues, depl_agg, time_period_dims if time_period_dims else None)
 
+                        
                         # Calculate numerator for this dimension value
                         match uplift_metric_type:
                             case MenuColNames.MENU_UPLIFT_METRIC.value:
@@ -330,7 +350,7 @@ class DataProvider(object):
                         # Calculate numerator average for this dimension value
                         numerator_counts, numerator_avgs, numerator_time_periods = calculate_avg_depletion(numerator_venues, depl_agg, time_period_dims if time_period_dims else None)
                         
-                        create_row_data(time_periods, just_in_dist_avgs, numerator_avgs, numerator_time_periods, dim_value=dim_value)
+                        create_row_data(time_periods, just_in_dist_avgs, numerator_avgs, numerator_counts, numerator_time_periods, dim_value=dim_value)
                     
                    
                     # Add other dimensions
