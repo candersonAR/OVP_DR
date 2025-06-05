@@ -1,15 +1,11 @@
-from typing import Optional
-from ar_analytics.helpers.utils import pull_data, exit_with_status
+from ar_analytics.helpers.utils import pull_data
 from overproof_utilities import MenuColNames
 import pandas as pd
 import numpy as np
 import time
-
 import logging
-_logger = logging.getLogger(__name__)
 
-from ar_analytics.helpers.utils import _process_filters, AnswerRocketClient, get_dataset_id
-import time
+_logger = logging.getLogger(__name__) # TODO: Use logger
 
 class DataProvider(object):
     def __init__(self):
