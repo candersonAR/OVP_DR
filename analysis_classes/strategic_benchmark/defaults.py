@@ -10,7 +10,8 @@ strategic_benchmark_config = SkillConfig(
     llm_name="strategic_benchmark",
     description="""""",
     capabilities="""""",
-    limitations="""""",
+    limitations="""Can only analyze one subject at a time, which must be either a brand or a product.
+""",
     example_questions="""""",
     parameter_guidance="""<TIME PERIODHANDLING>
 - TIME PERIOD HANDLING: Use this section to better understand time periods for the 'periods' parameter selection: 
@@ -47,6 +48,8 @@ class StrategicBenchmarkInit:
 @dataclass
 class StrategicBenchmarkParameters:
     metrics: list[str]
+    subject_filter = dict
+    peer_filters = list[dict]
     query_filters: Optional[list[dict]] = None
     period_filters: Optional[list[dict]] = None
     compare_date_warning_msg: Optional[str] = None

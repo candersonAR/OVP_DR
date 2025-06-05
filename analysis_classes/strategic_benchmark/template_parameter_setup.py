@@ -43,7 +43,7 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
     def map_parameters(self, parameters: SkillInput) -> Tuple[StrategicBenchmarkInit, StrategicBenchmarkParameters]:
 
         # TODO: Remove this and utilize the default mapping
-        param_dict = {"periods": [], "metrics": None, "limit_n": 10, "breakouts": None, "growth_type": None, "other_filters": [], "growth_trend": None, "calculated_metric_filters": None}
+        param_dict = {"periods": [], "other_filters": []}
         print(f"Skill received following parameters: {parameters.arguments}")
         # Update param_dict with values from parameters.arguments if they exist
         for key in param_dict:
@@ -83,9 +83,46 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
         metric_props = self.get_metric_props()
         dim_props = self.get_dimension_props()
 
+        subject_brand_name_filter = parameters.arguments.subject_brand_name_filter
+        subject_product_category_name_filter = parameters.arguments.subject_product_category_name_filter
+        peer_brand_name_filters = parameters.arguments.peer_brand_name_filters
+        peer_product_category_name_filters = parameters.arguments.peer_product_category_name_filters
+
+        if subject_brand_name_filter and subject_product_category_name_filter:
+            exit_with_status("Cannot analyze both a brand and a product category at the same time.")
+
+        if subject_brand_name_filter and not subject_product_category_name_filter:
+
+            subject_filter = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": subject_brand_name_filter}
+
+            peer_filters = [
+                {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": peer_brand_name_filter} 
+                for peer_brand_name_filter in peer_brand_name_filters
+            ] if peer_brand_name_filters else []
+
+            if peer_product_category_name_filters:
+                # TODO: Should we have a guardrail here?
+                pass
+
+        elif subject_product_category_name_filter and not subject_brand_name_filter:
+
+            subject_filter = {"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": subject_product_category_name_filter}
+
+            peer_filters = [
+                {"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": peer_product_category_name_filter} 
+                for peer_product_category_name_filter in peer_product_category_name_filters
+            ] if peer_product_category_name_filters else []
+
+            if peer_brand_name_filters:
+                # TODO: Should we have a guardrail here?
+                pass
+
+        else:
+            exit_with_status("Must provide either a brand or a product category for the subject.")
+
         ## Get filters by dimension
 
-        query_filters, query_filters_pills = self.parse_dimensions(env)
+        query_filters, query_filters_pills = self.parse_dimensions(env) # TODO: Remove brand and product filters placed here?
 
         # set growth type
         growth_type = "Y/Y" # setting as default, but keeping as a parameter in case it is changed down the line
@@ -144,6 +181,8 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
 
         sb_parameters = StrategicBenchmarkParameters(
             metrics=metrics,
+            subject_filter=subject_filter,
+            peer_filters=peer_filters,
             query_filters=query_filters,
             period_filters=period_filters,
             compare_date_warning_msg=compare_date_warning_msg,
