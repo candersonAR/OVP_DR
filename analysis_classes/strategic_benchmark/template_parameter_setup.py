@@ -93,10 +93,10 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
 
         if subject_brand_name_filter and not subject_product_category_name_filter:
 
-            subject_filter = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": subject_brand_name_filter}
+            subject_filter = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": subject_brand_name_filter}
 
             peer_filters = [
-                {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": peer_brand_name_filter} 
+                {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": peer_brand_name_filter} 
                 for peer_brand_name_filter in peer_brand_name_filters
             ] if peer_brand_name_filters else []
 
@@ -106,10 +106,10 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
 
         elif subject_product_category_name_filter and not subject_brand_name_filter:
 
-            subject_filter = {"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": subject_product_category_name_filter}
+            subject_filter = {"col": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": subject_product_category_name_filter}
 
             peer_filters = [
-                {"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": peer_product_category_name_filter} 
+                {"col": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": peer_product_category_name_filter} 
                 for peer_product_category_name_filter in peer_product_category_name_filters
             ] if peer_product_category_name_filters else []
 
@@ -128,9 +128,9 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
         growth_type = "Y/Y" # setting as default, but keeping as a parameter in case it is changed down the line
 
         # Get metrics and metric pills
-        DEFAULT_METRICS = [MenuColNames.MENU_PLACEMENTS_METRIC.value, MenuColNames.SOLD_9LE_METRIC.value]
-        metrics = DEFAULT_METRICS
-        metric_pills = self.get_metric_pills(metrics, metric_props) # TODO: Do we need to show these?
+        DEFAULT_METRICS = [MenuColNames.MENU_PLACEMENTS_METRIC.value, MenuColNames.VENUE_PLACEMENTS_METRIC.value]
+        metric_pills = self.get_metric_pills(DEFAULT_METRICS, metric_props) # TODO: Do we need to show these?
+        metrics = [self.helper.get_metric_prop(metric, metric_props) for metric in DEFAULT_METRICS]
 
         ### Period Handling ###
 

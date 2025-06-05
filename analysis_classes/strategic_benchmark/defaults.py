@@ -47,9 +47,9 @@ class StrategicBenchmarkInit:
 
 @dataclass
 class StrategicBenchmarkParameters:
-    metrics: list[str]
-    subject_filter = dict
-    peer_filters = list[dict]
+    metrics: list[dict]
+    subject_filter: dict
+    peer_filters: list[dict]
     query_filters: Optional[list[dict]] = None
     period_filters: Optional[list[dict]] = None
     compare_date_warning_msg: Optional[str] = None

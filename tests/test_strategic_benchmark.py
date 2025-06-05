@@ -41,22 +41,30 @@ class TestStrategicBenchmarkConfig:
     other_filters: list[dict]
     periods: list[str]
 
+config = TestStrategicBenchmarkConfig(
+    # subject_brand_name_filter={"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "johnnie walker"},
+    subject_brand_name_filter="johnnie walker",
+    # subject_product_category_name_filter={"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": "vodka"},
+    subject_product_category_name_filter="vodka",
+    peer_brand_name_filters=[
+        # {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "corona mexican beer"},
+        "corona mexican beer",
+        # {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "bacardi"}
+        "bacardi"
+    ],
+    peer_product_category_name_filters=[
+        # {"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": "gin"},
+        "gin",
+        # {"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": "rum"}
+        "rum"
+    ],
+    other_filters=[],
+    periods=['2024']
+)
+
 class TestStrategicBenchmarkGuardrails(TestStrategicBenchmark):
 
-    config = TestStrategicBenchmarkConfig(
-        subject_brand_name_filter={"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "johnnie walker"},
-        subject_product_category_name_filter={"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": "vodka"},
-        peer_brand_name_filters=[
-            {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "corona mexican beer"},
-            {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "bacardi"}
-        ],
-        peer_product_category_name_filters=[
-            {"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": "gin"},
-            {"dim": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": "rum"}
-        ],
-        other_filters=[],
-        periods=['2024']
-    )
+    config: TestStrategicBenchmarkConfig = config
 
     def test_no_subject_filter_provided(self):
 
@@ -92,25 +100,62 @@ class TestStrategicBenchmarkGuardrails(TestStrategicBenchmark):
             expected_exception = ExitFromSkillException
         )
 
+    def test_no_period_provided(self):
+
+        self._assert_strategic_benchmark_runs_with_error(
+            parameters = {
+                "subject_brand_name_filter": self.config.subject_brand_name_filter
+            },
+            expected_exception = ExitFromSkillException
+        )
+
+        self._assert_strategic_benchmark_runs_with_error(
+            parameters = {
+                "subject_product_category_name_filter": self.config.subject_product_category_name_filter
+            },
+            expected_exception = ExitFromSkillException
+        )
+
 class TestStrategicBenchmarkResults(TestStrategicBenchmark):
 
-    # sales_met = "sales_share" # todo: need this for overproof?
-    breakout1 = MenuColNames.BRAND_NAME_COL.value
-    breakout2 = MenuColNames.COCKTAIL_GROUP_COL.value
-    breakout3 = MenuColNames.PRODUCT_CATEGORY_NAME_COL.value
-    period_filter1 = "2024"
-    growth_type__yoy = "Y/Y"
-    growth_type__pop = "P/P"
-    filter1 = {"dim": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": "Papa's Pilar"}
-    filter2 = {"dim": MenuColNames.COCKTAIL_GROUP_COL.value, "op": "=", "val": "Margaritas"}
+    config: TestStrategicBenchmarkConfig = config
 
     preview = False # Set to True to get previews
 
-    def test_start(self):
+    def test_subject_brand(self):
 
         parameters = {
-            "other_filters": [self.filter1],
-            "periods": [self.period_filter1]
+            "subject_brand_name_filter": self.config.subject_brand_name_filter,
+            "periods": self.config.periods
         }   
+
+        self._assert_strategic_benchmark_runs_without_errors(parameters)
+
+    def test_subject_brand_with_peers(self):
+
+        parameters = {
+            "subject_brand_name_filter": self.config.subject_brand_name_filter,
+            "peer_brand_name_filters": self.config.peer_brand_name_filters,
+            "periods": self.config.periods
+        }
+
+        self._assert_strategic_benchmark_runs_without_errors(parameters)
+
+    def test_subject_product_category(self):
+
+        parameters = {
+            "subject_product_category_name_filter": self.config.subject_product_category_name_filter,
+            "periods": self.config.periods
+        }
+
+        self._assert_strategic_benchmark_runs_without_errors(parameters)
+
+    def test_subject_product_category_with_peers(self): 
+
+        parameters = {
+            "subject_product_category_name_filter": self.config.subject_product_category_name_filter,
+            "peer_product_category_name_filters": self.config.peer_product_category_name_filters,
+            "periods": self.config.periods
+        }
 
         self._assert_strategic_benchmark_runs_without_errors(parameters)
