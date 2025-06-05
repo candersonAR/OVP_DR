@@ -88,7 +88,7 @@ class StrategicBenchmark:
 
         return subject_df
 
-    def add_quantiles(self, subject_df: pd.DataFrame, breakout_df: pd.DataFrame, breakout_dim: str, metrics: List[dict]) -> pd.DataFrame:
+    def add_quantiles(self, subject_df: pd.DataFrame, breakout_df: pd.DataFrame, breakout_dim: str) -> pd.DataFrame:
 
         breakout_df = self.pivot_to_metrics_on_rows(breakout_df, breakout_dim)
 
@@ -107,7 +107,7 @@ class StrategicBenchmark:
         if not peer_df.empty:
 
             peer_df[self.benchmark_goal_col] = peer_df.mean(axis=1)
-            subject_df = self.merge_on_index(subject_df, peer_df)
+            subject_df = self.merge_on_index(subject_df, peer_df[self.benchmark_goal_col])
             subject_df.drop(columns=[self.benchmark_quantile_col], inplace=True)
 
         else:
@@ -117,7 +117,35 @@ class StrategicBenchmark:
     
     def get_facts_df(self, subject_df: pd.DataFrame, metrics: List[dict]) -> pd.DataFrame:
         
-        
+        # for each metric in the index, format the value of the column
+
+        facts_df = subject_df.copy()
+
+        for metric in metrics:
+            for col in facts_df.columns:
+                fmt = metric['fmt'] if "%" not in col else metric['growth_fmt']
+                facts_df.loc[metric['name'], col] = self.helper.get_formatted_num(facts_df.loc[metric['name'], col], fmt)
+
+        facts_df = facts_df.reset_index()
+        facts_df = facts_df.rename(columns={'index': 'Metrics'})
+
+        # facts_df.index = [self.helper.get_metric_prop(metric, self.metric_props).get("label") for metric in metrics]
+
+        # facts_df.index = [self.helper.get_metric_prop(metric, self.metric_props).get("label") for metric in metrics]
+
+        # for idx, row in facts_df.iterrows():
+
+        #     for col in facts_df.columns:
+        #         fmt = self.metric_props[col]['fmt'] if "%" not in col else self.metric_props[col]['fmt'] + " %"
+        #         facts_df.loc[idx, col] = self.helper.get_formatted_num(row[col], fmt)
+
+        # for each value in facts_df, format the value using the metric on the index
+
+        # facts_df = facts_df.T
+        # for metric in metrics:
+        #     facts_df[metric['name']] = facts_df[metric['name']].apply(lambda x: self.helper.get_formatted_num(x, metric['format']))
+
+        return facts_df
     
     def run(self, parameters: StrategicBenchmarkParameters) -> StrategicBenchmarkRunResult:
 
@@ -138,12 +166,14 @@ class StrategicBenchmark:
         peer_df = self.pivot_to_metrics_on_rows(breakout_df[breakout_df[breakout_dim].str.lower().isin([filter['val'].lower() for filter in parameters.peer_filters])], breakout_dim)
         
         subject_df = self.add_subject_growth(subject_df, parameters.metrics, parameters.query_filters, growth_period_filter, parameters.subject_filter)
-        subject_df = self.add_quantiles(subject_df, breakout_df, breakout_dim, parameters.metrics)
-        subject_df = self.merge_on_index(subject_df, peer_df)
+        subject_df = self.add_quantiles(subject_df, breakout_df, breakout_dim)
+        subject_df = pd.concat([subject_df, peer_df], axis=1)
         subject_df = self.add_goals(subject_df, peer_df)
 
+        facts_df = self.get_facts_df(subject_df, parameters.metrics)
+
         result = StrategicBenchmarkRunResult(
-            df=subject_df,
+            df=facts_df,
             fact_dfs=[pd.DataFrame(self.notes)],
             followups=[]
         )
