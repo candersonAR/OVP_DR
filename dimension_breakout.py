@@ -10,6 +10,7 @@ from ar_analytics import BreakoutAnalysisTemplateParameterSetup, ArUtils
 from overproof_dimension_breakout import OverproofBreakoutAnalysis
 from ar_analytics.defaults import dimension_breakout_config, default_table_layout, get_table_layout_vars
 from overproof_data_provider import DataProvider
+from overproof_visualization_utilities import render_layout
 
 import jinja2
 import logging
@@ -147,51 +148,6 @@ def simple_breakout(parameters: SkillInput):
         followup_questions=[SuggestedQuestion(label=f.get("label"), question=f.get("question")) for f in followups if f.get("label")],
         export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
     )
-
-
-def find_footnote(footnotes, df, general_footnote=None):
-    footnotes = footnotes or {}
-    for col in df.columns:
-        if col in footnotes:
-            dim_note = footnotes.get(col)
-            if general_footnote:
-                return dim_note + "\n" + general_footnote
-            return dim_note
-    return general_footnote
-
-def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes, general_footnote, max_prompt, insight_prompt, viz_layout):
-    facts = []
-    for i_df in insights_dfs:
-        facts.append(i_df.to_dict(orient='records'))
-
-    insight_template = jinja2.Template(insight_prompt).render(**{"facts": facts})
-    max_response_prompt = jinja2.Template(max_prompt).render(**{"facts": facts})
-
-    # adding insights
-    ar_utils = ArUtils()
-    insights = ar_utils.get_llm_response(insight_template)
-    viz_list = []
-    export_data = {}
-
-    general_vars = {"headline": title if title else "Total",
-                    "sub_headline": subtitle or "Breakout Analysis",
-                    "hide_growth_warning": False if warnings else True,
-                    "exec_summary": insights if insights else "No Insights.",
-                    "warning": warnings}
-
-    viz_layout = json.loads(viz_layout)
-
-    for name, table in tables.items():
-        export_data[name] = table
-        dim_note = find_footnote(footnotes, table, general_footnote)
-        hide_footer = False if dim_note else True
-        table_vars = get_table_layout_vars(table)
-        table_vars["hide_footer"] = hide_footer
-        table_vars["footer"] = f"*{dim_note.strip()}" if dim_note else "No additional info."
-        rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
-        viz_list.append(SkillVisualization(title=name, layout=rendered))
-
-    return viz_list, insights, max_response_prompt, export_data
 
 if __name__ == '__main__':
     # skill_input: SkillInput = simple_breakout.create_input(arguments={'metrics': ["menu_placements"], 'breakouts': ["cocktail_family"], 'periods': ["Jan 2025"], 'other_filters': [{"dim": "brand_name", "op": "=", "val": ["Papa's Pilar"]}]})
