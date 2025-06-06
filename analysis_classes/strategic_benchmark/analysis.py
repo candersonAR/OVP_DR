@@ -178,7 +178,7 @@ class StrategicBenchmark:
         subject_df = self.add_goals(subject_df, peer_df)
 
         facts_df = self.get_facts_df(subject_df, parameters.metrics)
-        table_df = self.get_table_df(breakout_df, parameters.metrics, breakout_dim, parameters.query_filters)
+        table_df = self.get_table_df(facts_df, parameters.metrics, breakout_dim, parameters.query_filters)
 
         result = StrategicBenchmarkRunResult(
             table_df=table_df,

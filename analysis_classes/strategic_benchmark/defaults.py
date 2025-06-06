@@ -28,7 +28,15 @@ strategic_benchmark_config = SkillConfig(
 - If no time period is provided, execute using skill default.
 <TIME PERIODHANDLING>""",
     max_prompt=DEFAULT_MAX_PROMPT,
-    insight_prompt=""""""
+    insight_prompt="""Write a short headline followed by a 60 word or less paragraph about using facts below.
+Use the structure from the 2 examples below to learn how I typically write summary.
+Base your summary solely on the provided facts, avoiding assumptions or judgments.
+Ensure clarity and accuracy.
+Use markdown formatting for a structured and clear presentation.
+
+Facts:
+{{facts}}
+Summary:"""
 )
 
 
