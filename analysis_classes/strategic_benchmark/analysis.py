@@ -233,17 +233,15 @@ class StrategicBenchmark:
             dim_props=self.dim_props
         )
 
+        title = f"Strategic Benchmark for {title}"
+
         if peer_title:
             title = f"{title} vs {peer_title}"
 
         if query_filters_title:
             title = f"{title} • {query_filters_title}"
 
-        breakout_dim = parameters.subject_filter['col']
-        breakout_dim_info = self.helper.get_dimension_prop(breakout_dim, self.dim_props)
-        breakout_str = f"Strategic Benchmark by {breakout_dim_info.get('label', breakout_dim)}"
-        date_str = old_get_date_label_str(parameters.date_labels)
-        subtitle = f"{breakout_str} {date_str}"
+        subtitle = old_get_date_label_str(parameters.date_labels, prefix="")
 
         return title, subtitle
     
