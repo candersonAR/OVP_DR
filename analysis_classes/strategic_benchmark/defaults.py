@@ -1,9 +1,12 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import List, Optional
 from ar_analytics.defaults import SkillConfig, DEFAULT_MAX_PROMPT
 from ar_analytics.helpers.utils import Connector
 import pandas as pd
 from skill_framework import ParameterDisplayDescription, SuggestedQuestion
+
+from overproof_utilities import MenuColNames
 
 strategic_benchmark_config = SkillConfig(
     name="Strategic Benchmark",
@@ -39,6 +42,24 @@ Facts:
 Summary:"""
 )
 
+class MetricGroup(Enum):
+    MENU_PRESENCE = "Menu Presence"
+    VENUE_PRESENCE = "Venue Presence"
+    GEOGRAPHICAL_EXPANSION = "Geographical Expansion"
+
+DEFAULT_METRICS = [
+    MenuColNames.MENU_PLACEMENTS_METRIC.value, 
+    MenuColNames.VENUE_PLACEMENTS_METRIC.value,
+    MenuColNames.STATE_MENTIONS_METRIC.value,
+    MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value
+]
+
+DEFAULT_METRIC_GROUP_MAPPING = {
+    MenuColNames.VENUE_PLACEMENTS_METRIC.value: MetricGroup.VENUE_PRESENCE.value,
+    MenuColNames.MENU_PLACEMENTS_METRIC.value: MetricGroup.MENU_PRESENCE.value,
+    MenuColNames.STATE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value,
+    MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value
+}
 
 @dataclass
 class StrategicBenchmarkInit:

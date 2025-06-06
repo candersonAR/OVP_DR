@@ -36,7 +36,12 @@ class DataProvider(object):
         self.uplift_performance_metrics = [MenuColNames.UPLIFT_PERFORMANCE_MENU_MENTIONS_METRIC.value, MenuColNames.UPLIFT_PERFORMANCE_VPO_WITH_METRIC.value, MenuColNames.UPLIFT_PERFORMANCE_VPO_WITHOUT_METRIC.value]
         # joining dimensions (lowest common granularity) between menu and depletions data
         self.common_dims = [MenuColNames.VENUE_ID_COL.value, MenuColNames.PRODUCT_ID_COL.value]
-        self.menu_metrics = [MenuColNames.MENU_PLACEMENTS_METRIC.value, MenuColNames.VENUE_PLACEMENTS_METRIC.value]
+        self.menu_metrics = [
+            MenuColNames.MENU_PLACEMENTS_METRIC.value, 
+            MenuColNames.VENUE_PLACEMENTS_METRIC.value,
+            MenuColNames.STATE_MENTIONS_METRIC.value,
+            MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value
+        ]
         self.depletions_metrics = [MenuColNames.SOLD_9LE_METRIC.value, MenuColNames.SOLD_CASES_METRIC.value]
         self.psudo_join_col = "join_col"
         self.depletions_agg_dict = {MenuColNames.SOLD_9LE_METRIC.value: np.sum, MenuColNames.SOLD_CASES_METRIC.value: np.sum}

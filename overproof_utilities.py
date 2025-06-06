@@ -15,6 +15,8 @@ class MenuColNames(Enum):
     MENU_PLACEMENTS_SHARE_METRIC = "menu_placements_share"
     SOLD_9LE_METRIC = "sold_9le"
     SOLD_CASES_METRIC = "sold_cases"
+    STATE_MENTIONS_METRIC = "state_mentions"
+    POSTAL_CODE_MENTIONS_METRIC = "postal_code_mentions"
 
     MENU_UPLIFT_METRIC = "menu_uplift"
     SINGLE_SPIRIT_UPLIFT_METRIC = "single_spirit_uplift"

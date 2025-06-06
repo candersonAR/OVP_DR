@@ -1,11 +1,12 @@
-from typing import List
+from typing import List, Optional, Tuple
 import pandas as pd
 import numpy as np
 from ar_analytics import pull_data
+from ar_analytics.helpers.utils import old_get_filters_headline, old_get_date_label_str
 from skill_framework import ExportData, SkillOutput
 
-from analysis_classes.strategic_benchmark.defaults import StrategicBenchmarkInit, StrategicBenchmarkParameters, StrategicBenchmarkRunResult
-from overproof_utilities import OverproofSharedFn
+from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRIC_GROUP_MAPPING, StrategicBenchmarkInit, StrategicBenchmarkParameters, StrategicBenchmarkRunResult
+from overproof_utilities import MenuColNames, OverproofSharedFn
 from overproof_visualization_utilities import render_layout
 
 # Do not remove, pulls in max_metadata on all pandas DFs
@@ -46,6 +47,41 @@ class StrategicBenchmark:
     def merge_on_index(self, df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
         
         return df1.merge(df2, left_index=True, right_index=True, how='left')
+    
+    def get_breakout_data(self, 
+        metrics: List[dict], 
+        breakouts: Optional[List[str]] = None, 
+        query_filters: List[dict] = None
+    ) -> pd.DataFrame:
+        
+        if not query_filters:
+            query_filters = []
+
+        first_pull_metrics = [
+            metric for metric in metrics 
+            if metric['name'].lower() in [
+                MenuColNames.MENU_PLACEMENTS_METRIC.value.lower(),
+                MenuColNames.VENUE_PLACEMENTS_METRIC.value.lower(),
+                MenuColNames.STATE_MENTIONS_METRIC.value.lower(),
+                MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value.lower()
+            ]
+        ]
+
+        if breakouts:
+        
+            breakout_df = self.pull_data_func(
+                metrics=first_pull_metrics,
+                breakouts=breakouts,
+                filters=query_filters
+            )
+
+        else:
+            breakout_df = self.pull_data_func(
+                metrics=first_pull_metrics,
+                filters=query_filters
+            )
+
+        return breakout_df
 
     def calculate_growth(self, subject_df: pd.DataFrame, subject_val_col: str, subject_val_prev_col: str, growth_type: str = "Y/Y") -> pd.DataFrame:
 
@@ -73,9 +109,9 @@ class StrategicBenchmark:
         if not growth_period_filter:
             return subject_df
 
-        subject_growth_df = self.pull_data_func(
+        subject_growth_df = self.get_breakout_data(
             metrics=metrics,
-            filters=query_filters + [growth_period_filter, subject_filter]
+            query_filters=query_filters + [growth_period_filter, subject_filter]
         )
 
         subject_val_col = subject_df.columns[0]
@@ -137,6 +173,9 @@ class StrategicBenchmark:
         # Format metric columns
         facts_df = facts_df.reset_index()
         facts_df = facts_df.rename(columns={'index': 'Metrics'})
+
+        facts_df.insert(loc=0, column='Metric Group', value=facts_df['Metrics'].apply(lambda x: DEFAULT_METRIC_GROUP_MAPPING.get(x, x))        )
+
         met_renames = {metric['name'].lower(): metric.get("label", metric['name']) for metric in metrics}
         facts_df['Metrics'] = facts_df['Metrics'].apply(lambda x: met_renames.get(x.lower(), x))
 
@@ -154,19 +193,55 @@ class StrategicBenchmark:
 
         return table_df
     
+    def get_title_and_subtitle(self, parameters: StrategicBenchmarkParameters) -> Tuple[str, str]:
+
+        title = old_get_filters_headline(
+            [parameters.subject_filter],
+            headline_seperator=", ",
+            metric_props=self.metric_props,
+            dim_props=self.dim_props
+        )
+
+        peer_title = old_get_filters_headline(
+            parameters.peer_filters,
+            headline_seperator=", ",
+            metric_props=self.metric_props,
+            dim_props=self.dim_props
+        )
+
+        query_filters_title = old_get_filters_headline(
+            parameters.query_filters,
+            headline_seperator=", ",
+            metric_props=self.metric_props,
+            dim_props=self.dim_props
+        )
+
+        if peer_title:
+            title = f"{title} vs {peer_title}"
+
+        if query_filters_title:
+            title = f"{title} • {query_filters_title}"
+
+        breakout_dim = parameters.subject_filter['col']
+        breakout_dim_info = self.helper.get_dimension_prop(breakout_dim, self.dim_props)
+        breakout_str = f"Strategic Benchmark by {breakout_dim_info.get('label', breakout_dim)}"
+        date_str = old_get_date_label_str(parameters.date_labels)
+        subtitle = f"{breakout_str} {date_str}"
+
+        return title, subtitle
+    
     def run(self, parameters: StrategicBenchmarkParameters) -> StrategicBenchmarkRunResult:
 
         breakout_dim = parameters.subject_filter['col']
-
         current_period_filter = parameters.period_filters[0]
         growth_period_filter = parameters.period_filters[1] if len(parameters.period_filters) > 1 else None
 
         # get breakout df
 
-        breakout_df = self.pull_data_func(
+        breakout_df = self.get_breakout_data(
             metrics=parameters.metrics,
             breakouts=[breakout_dim],
-            filters=parameters.query_filters + [current_period_filter]
+            query_filters=parameters.query_filters + ([current_period_filter] if current_period_filter else [])
         )
 
         subject_df = self.pivot_to_metrics_on_rows(breakout_df[breakout_df[breakout_dim].str.lower() == parameters.subject_filter['val'].lower()], breakout_dim)
@@ -180,12 +255,14 @@ class StrategicBenchmark:
         facts_df = self.get_facts_df(subject_df, parameters.metrics)
         table_df = self.get_table_df(facts_df, parameters.metrics, breakout_dim, parameters.query_filters)
 
+        title, subtitle = self.get_title_and_subtitle(parameters)
+
         result = StrategicBenchmarkRunResult(
             table_df=table_df,
             fact_dfs=[facts_df],
             followups=[],
-            title="Strategic Benchmark",
-            subtitle="Strategic Benchmark"
+            title=title,
+            subtitle=subtitle
         )
 
         return result

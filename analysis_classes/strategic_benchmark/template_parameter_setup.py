@@ -3,7 +3,7 @@ from typing import List, Tuple
 from ar_analytics.helpers.utils import TemplateParameterSetup, SkillPlatform, exit_with_status, Connector
 from skill_framework import ParameterDisplayDescription, SkillInput
 
-from analysis_classes.strategic_benchmark.defaults import StrategicBenchmarkInit, StrategicBenchmarkParameters
+from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRICS, StrategicBenchmarkInit, StrategicBenchmarkParameters
 from overproof_utilities import MenuColNames
 
 import logging
@@ -121,14 +121,12 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
             exit_with_status("Must provide either a brand or a product category for the subject.")
 
         ## Get filters by dimension
-
         query_filters, query_filters_pills = self.parse_dimensions(env) # TODO: Remove brand and product filters placed here?
 
         # set growth type
         growth_type = "Y/Y" # setting as default, but keeping as a parameter in case it is changed down the line
 
         # Get metrics and metric pills
-        DEFAULT_METRICS = [MenuColNames.MENU_PLACEMENTS_METRIC.value, MenuColNames.VENUE_PLACEMENTS_METRIC.value]
         metric_pills = self.get_metric_pills(DEFAULT_METRICS, metric_props) # TODO: Do we need to show these?
         metrics = [self.helper.get_metric_prop(metric, metric_props) for metric in DEFAULT_METRICS]
 
