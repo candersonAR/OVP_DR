@@ -117,33 +117,25 @@ class StrategicBenchmark:
     
     def get_facts_df(self, subject_df: pd.DataFrame, metrics: List[dict]) -> pd.DataFrame:
         
-        # for each metric in the index, format the value of the column
-
         facts_df = subject_df.copy()
 
+        # Apply formatting for each metric
         for metric in metrics:
-            for col in facts_df.columns:
-                fmt = metric['fmt'] if "%" not in col else metric['growth_fmt']
-                facts_df.loc[metric['name'], col] = self.helper.get_formatted_num(facts_df.loc[metric['name'], col], fmt)
+            metric_name = metric['name']
+            row = facts_df.loc[metric_name]
+            facts_df.loc[metric_name] = pd.Series({
+                col: self.helper.get_formatted_num(
+                    row[col],
+                    metric['growth_fmt'] if '%' in col else metric['fmt']
+                )
+                for col in facts_df.columns
+            })
 
+        # Format metric columns
         facts_df = facts_df.reset_index()
         facts_df = facts_df.rename(columns={'index': 'Metrics'})
-
-        # facts_df.index = [self.helper.get_metric_prop(metric, self.metric_props).get("label") for metric in metrics]
-
-        # facts_df.index = [self.helper.get_metric_prop(metric, self.metric_props).get("label") for metric in metrics]
-
-        # for idx, row in facts_df.iterrows():
-
-        #     for col in facts_df.columns:
-        #         fmt = self.metric_props[col]['fmt'] if "%" not in col else self.metric_props[col]['fmt'] + " %"
-        #         facts_df.loc[idx, col] = self.helper.get_formatted_num(row[col], fmt)
-
-        # for each value in facts_df, format the value using the metric on the index
-
-        # facts_df = facts_df.T
-        # for metric in metrics:
-        #     facts_df[metric['name']] = facts_df[metric['name']].apply(lambda x: self.helper.get_formatted_num(x, metric['format']))
+        met_renames = {metric['name'].lower(): metric.get("label", metric['name']) for metric in metrics}
+        facts_df['Metrics'] = facts_df['Metrics'].apply(lambda x: met_renames.get(x.lower(), x))
 
         return facts_df
     
