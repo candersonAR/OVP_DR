@@ -78,7 +78,7 @@ def uplift_performance(parameters: SkillInput):
     uplift_performance_additional_metrics = [prop.get("name") for prop in [metric__menu_mentions_props, metric__vpo_with_props, metric__vpo_without_props]]
 
     required_breakouts = [MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value]
-    required_metrics = [MenuColNames.COCKTAIL_UPLIFT_METRIC.value] + uplift_performance_additional_metrics
+    required_metrics = uplift_performance_additional_metrics + [MenuColNames.COCKTAIL_UPLIFT_METRIC.value] 
     param_dict = {"periods": [], "limit_n": 10, "metrics": required_metrics, "breakouts": required_breakouts, "other_filters": [], "calculated_metric_filters": None, "growth_type": None, "growth_trend": None}
     
     # Update param_dict with values from parameters.arguments if they exist

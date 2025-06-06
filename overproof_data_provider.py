@@ -365,7 +365,8 @@ class DataProvider(object):
                 result_df = pd.DataFrame(result_rows)
                 
                 # Sort and limit if needed
-                result_df = result_df.sort_values(by=uplift_metric_type, ascending=False)
+                sort_metric = uplift_metric_type if not is_uplift_performance_query else MenuColNames.UPLIFT_PERFORMANCE_MENU_MENTIONS_METRIC.value
+                result_df = result_df.sort_values(by=sort_metric, ascending=False)
 
                 if query_row_limit:
                     result_df = result_df.head(query_row_limit)
