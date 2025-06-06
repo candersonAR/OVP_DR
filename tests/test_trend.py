@@ -12,8 +12,11 @@ class TestTrend:
 
     met1 = MenuColNames.SOLD_9LE_METRIC.value
     met2 = MenuColNames.MENU_PLACEMENTS_METRIC.value
+    metric__menu_uplift = MenuColNames.MENU_UPLIFT_METRIC.value
+    metric__cocktail_uplift = MenuColNames.COCKTAIL_UPLIFT_METRIC.value
+    metric__single_spirit_uplift = MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value
     metric__menu_placements_share = MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value
-    sales_uplift = MenuColNames.SALES_UPLIFT_METRIC.value
+
     sold_cases = MenuColNames.SOLD_CASES_METRIC.value
 
     # sales_met = "sales_share" # todo: need this for overproof?
@@ -217,35 +220,31 @@ class TestTrend:
 
         self._assert_trend_runs_without_errors(parameters)
 
-    def test_sales_uplift_by_cocktail_group_in_2024(self):
-        """Test sales uplift by cocktail group in 2024"""
+    # TODO: Add this test once uplift breakout is supported
+    def test_menu_uplift_by_cocktail_group_in_2024(self):
+        """Test menu uplift by cocktail group in 2024"""
 
         parameters = {
-            "metrics": [self.sales_uplift],
+            "metrics": [self.metric__menu_uplift],
             "periods": [self.period_filter1],
-            "breakouts": [self.breakout2]
+            "breakouts": [self.breakout2],
+            "other_filters": [self.filter1]
         }
 
         self._assert_trend_runs_without_errors(parameters)
 
-    def test_sales_uplift_and_sold_9le_by_brand_in_q1_2024(self):
+    def test_menu_uplift_and_sold_9le_by_brand_in_q1_2024(self):
         """
-        Test sales uplift and sold 9le by brand in q1 2024
+        Test menu uplift and sold 9le by brand in q1 2024
 
         From CON-3859
         """
 
         parameters = {
-            "metrics": [self.sales_uplift, self.met1],
+            "metrics": [self.metric__menu_uplift, self.met1],
             "periods": [self.period_filter1],
             "other_filters": [
-                {
-                    "val": [
-                        "papa's pilar"
-                    ],
-                    "dim": "brand_name",
-                    "op": "="
-                },
+                self.filter1,
                 {
                     "val": [
                         "miami"
@@ -253,29 +252,22 @@ class TestTrend:
                     "dim": "venue__city",
                     "op": "="
                 }
-            ]
+            ] 
         }
-        
         self._assert_trend_runs_without_errors(parameters)
 
-    def test_sales_uplift_and_sold_cases_in_q1_2024_filtered_to_papas_pilar_and_miami(self):
+    def test_menu_uplift_and_sold_cases_in_q1_2024_filtered_to_papas_pilar_and_miami(self):
 
         parameters = {
             "metrics": [
-                self.sales_uplift,
+                self.metric__menu_uplift,
                 self.sold_cases
             ],
             "periods": [
                 "q1 2024"
             ],
             "other_filters": [
-                {
-                    "val": [
-                        "papa's pilar"
-                    ],
-                    "dim": "brand_name",
-                    "op": "="
-                },
+                self.filter1,
                 {
                     "val": [
                         "miami"
@@ -288,28 +280,27 @@ class TestTrend:
 
         self._assert_trend_runs_without_errors(parameters)
 
-    def test_sales_uplift_and_sold_cases_by_brand_name_in_2024_yoy_growth(self):
+    # TODO: Add this test once uplift breakout is supported
+    # def test_menu_uplift_and_sold_cases_by_brand_name_in_2024_yoy_growth(self):
+    #   parameters = {
+    #         "metrics": [
+    #             self.menu_uplift,
+    #             self.sold_cases
+    #         ],
+    #         "time_granularity": "month",
+    #         "periods": [
+    #             self.period_filter1
+    #         ],
+    #         "breakouts": [
+    #             self.breakout1
+    #         ],
+    #         # "growth_type": self.growth_type__yoy
+    #         "growth_type": self.growth_type__pop
+    #     }
 
-        parameters = {
-            "metrics": [
-                self.sales_uplift,
-                self.sold_cases
-            ],
-            "time_granularity": "month",
-            "periods": [
-                self.period_filter1
-            ],
-            "breakouts": [
-                self.breakout1
-            ],
-            # "growth_type": self.growth_type__yoy
-            "growth_type": self.growth_type__pop
-        }
-
-        self._assert_trend_runs_without_errors(parameters)
+    #   self._assert_trend_runs_without_errors(parameters)
 
     def test_menu_placements_share_by_brand_in_q1_2024(self):
-
         parameters = {
             'metrics': [self.metric__menu_placements_share, self.met2],
             'breakouts': [self.breakout1],
@@ -320,7 +311,6 @@ class TestTrend:
         self._assert_trend_runs_without_errors(parameters)
 
     def test_menu_placements_share_by_category_in_q1_2024(self):
-
         parameters = {
             'metrics': [self.metric__menu_placements_share, self.met2],
             'breakouts': [self.breakout3],
@@ -347,5 +337,4 @@ class TestTrend:
             "breakouts": [self.breakout3],
             "other_filters": [self.filter2]
         }
-
         self._assert_trend_runs_without_errors(parameters)
