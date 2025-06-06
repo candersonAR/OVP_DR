@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple
 import pandas as pd
 import numpy as np
 from ar_analytics import pull_data
-from ar_analytics.helpers.utils import old_get_filters_headline, old_get_date_label_str
+from ar_analytics.helpers.utils import old_get_filters_headline, old_get_date_label_str, old_split_dim_and_metric_filters
 from skill_framework import ExportData, SkillOutput
 
 from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRIC_GROUP_MAPPING, StrategicBenchmarkInit, StrategicBenchmarkParameters, StrategicBenchmarkRunResult
@@ -47,6 +47,23 @@ class StrategicBenchmark:
     def merge_on_index(self, df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
         
         return df1.merge(df2, left_index=True, right_index=True, how='left')
+    
+    def get_warning_messages(self):
+
+        warning_messages = []
+
+        # if self.hit_row_limit:
+        #     msg = f'The following analysis has been limited to {self.helper.get_formatted_num(self.con.limit, ",.0f")} rows which may impact the accuracy of the observations made.'
+        #     warning_messages.append(msg)
+
+        if self.compare_date_warning_msg:
+            warning_messages.append(self.compare_date_warning_msg)
+
+        warning_message = ' '.join(warning_messages)
+        if warning_message:
+            warning_message = f"⚠ {warning_message}"
+
+        return warning_message
     
     def get_breakout_data(self, 
         metrics: List[dict], 
@@ -256,13 +273,15 @@ class StrategicBenchmark:
         table_df = self.get_table_df(facts_df, parameters.metrics, breakout_dim, parameters.query_filters)
 
         title, subtitle = self.get_title_and_subtitle(parameters)
+        warnings = self.get_warning_messages()
 
         result = StrategicBenchmarkRunResult(
             table_df=table_df,
             fact_dfs=[facts_df],
             followups=[],
             title=title,
-            subtitle=subtitle
+            subtitle=subtitle,
+            warnings=warnings
         )
 
         return result
@@ -270,9 +289,9 @@ class StrategicBenchmark:
     def create_viz(self, run_result: StrategicBenchmarkRunResult) -> SkillOutput:
 
         tables = {run_result.title: run_result.table_df}
-        warnings = None
+        warnings = run_result.warnings
         footnotes = {}
-        general_footnote = None
+        general_footnote = run_result.general_footnote
 
         viz, insights, final_prompt, export_data = render_layout(
             tables,

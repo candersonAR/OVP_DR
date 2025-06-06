@@ -85,4 +85,8 @@ def strategic_benchmark(parameters: SkillInput):
     sb = StrategicBenchmark(init=init)  
 
     sb_result = sb.run(parameters=sb_parameters)
+
+    if df_provider.removed_nones:
+        sb_result.general_footnote = "Many Items are not aligned with specific product details. These values are filtered from analysis and calculations to provide a more clear answer."
+
     return sb.create_viz(run_result=sb_result)

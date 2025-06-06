@@ -91,3 +91,5 @@ class StrategicBenchmarkRunResult:
     followups: List[SuggestedQuestion]
     title: str
     subtitle: str
+    warnings: Optional[str] = None
+    general_footnote: Optional[str] = None
