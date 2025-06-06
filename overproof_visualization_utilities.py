@@ -7,6 +7,7 @@ from skill_framework import SkillVisualization
 from skill_framework.layouts import wire_layout
 
 from ar_analytics.defaults import get_table_layout_vars
+from ar_analytics.helpers.df_meta_util import apply_metadata_to_layout_element
 
 '''
 Overwritten for overproof's dimension breakout skill to include the general footnote.
@@ -53,7 +54,9 @@ def render_layout(tables, title, subtitle, insights_dfs, warnings, footnotes, ge
         table_vars = get_table_layout_vars(table)
         table_vars["hide_footer"] = hide_footer
         table_vars["footer"] = f"*{dim_note.strip()}" if dim_note else "No additional info."
-        rendered = wire_layout(viz_layout, {**general_vars, **table_vars})
+        meta_viz_layout = apply_metadata_to_layout_element(viz_layout, "DataTable0",
+                                                           {"sourceDataframeId": table.max_metadata.get_id()})
+        rendered = wire_layout(meta_viz_layout, {**general_vars, **table_vars})
         viz_list.append(SkillVisualization(title=name, layout=rendered))
 
     return viz_list, insights, max_response_prompt, export_data
