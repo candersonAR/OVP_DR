@@ -8,6 +8,9 @@ from analysis_classes.strategic_benchmark.defaults import StrategicBenchmarkInit
 from overproof_utilities import OverproofSharedFn
 from overproof_visualization_utilities import render_layout
 
+# Do not remove, pulls in max_metadata on all pandas DFs
+import answer_rocket
+
 class StrategicBenchmark:
     def __init__(self, init: StrategicBenchmarkInit):
 
@@ -139,6 +142,18 @@ class StrategicBenchmark:
 
         return facts_df
     
+    def get_table_df(self, df: pd.DataFrame, metrics: List[dict], breakout_dim: str, query_filters: List[dict]) -> pd.DataFrame:
+
+        table_df = df.copy()
+
+        metric_names = [metric['name'] for metric in metrics]
+
+        table_df.max_metadata.set_filters(query_filters)
+        table_df.max_metadata.set_measures(metric_names)
+        table_df.max_metadata.set_description(f"{', '.join(metric_names)} broken out by {breakout_dim}")
+
+        return table_df
+    
     def run(self, parameters: StrategicBenchmarkParameters) -> StrategicBenchmarkRunResult:
 
         breakout_dim = parameters.subject_filter['col']
@@ -163,29 +178,29 @@ class StrategicBenchmark:
         subject_df = self.add_goals(subject_df, peer_df)
 
         facts_df = self.get_facts_df(subject_df, parameters.metrics)
+        table_df = self.get_table_df(breakout_df, parameters.metrics, breakout_dim, parameters.query_filters)
 
         result = StrategicBenchmarkRunResult(
-            df=facts_df,
-            fact_dfs=[pd.DataFrame(self.notes)],
-            followups=[]
+            table_df=table_df,
+            fact_dfs=[facts_df],
+            followups=[],
+            title="Strategic Benchmark",
+            subtitle="Strategic Benchmark"
         )
 
         return result
     
     def create_viz(self, run_result: StrategicBenchmarkRunResult) -> SkillOutput:
 
-        tables = {"table": run_result.df}
+        tables = {run_result.title: run_result.table_df}
         warnings = None
         footnotes = {}
         general_footnote = None
 
-        title = "Strategic Benchmark"
-        subtitle = "Strategic Benchmark"
-
         viz, insights, final_prompt, export_data = render_layout(
             tables,
-            title,
-            subtitle,
+            run_result.title,
+            run_result.subtitle,
             run_result.fact_dfs,
             warnings,
             footnotes,

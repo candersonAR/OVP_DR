@@ -57,6 +57,8 @@ class StrategicBenchmarkParameters:
 
 @dataclass
 class StrategicBenchmarkRunResult:
-    df: pd.DataFrame
+    table_df: pd.DataFrame
     fact_dfs: List[pd.DataFrame]
     followups: List[SuggestedQuestion]
+    title: str
+    subtitle: str
