@@ -2,11 +2,11 @@ from typing import List, Optional, Tuple
 import pandas as pd
 import numpy as np
 from ar_analytics import pull_data
-from ar_analytics.helpers.utils import old_get_filters_headline, old_get_date_label_str, PreQueryOperator, exit_with_status
+from ar_analytics.helpers.utils import old_get_filters_headline, old_get_date_label_str, PreQueryOperator, exit_with_status, is_filter_token, OldDimensionHierarchy
 from skill_framework import ExportData, SkillOutput
 
 from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRIC_GROUP_MAPPING, StrategicBenchmarkCustomMetrics, StrategicBenchmarkInit, StrategicBenchmarkParameters, StrategicBenchmarkRunResult
-from overproof_utilities import MenuColNames, OverproofSharedFn
+from overproof_utilities import MenuColNames, OverproofSharedFn, calculate_market_share_denominator
 from overproof_visualization_utilities import render_layout
 
 # Do not remove, pulls in max_metadata on all pandas DFs
@@ -16,11 +16,15 @@ class StrategicBenchmark:
     def __init__(self, init: StrategicBenchmarkInit):
 
         self.con = init.sql_exec
-        self.dim_hierarchy = init.dim_hierarchy
         self.compare_date_warning_msg = init.compare_date_warning_msg
         self.pills = init.pills
         self.metric_props = init.metric_props
         self.dim_props = init.dim_props
+
+        if not init.dim_hierarchy:
+            raise exit_with_status("Dim Hierarchy not provided for share metrics")
+        else:
+            self.dim_hierarchy = OldDimensionHierarchy(init.dim_hierarchy)
 
         self.max_prompt = init.max_prompt
         self.insight_prompt = init.insight_prompt
@@ -65,14 +69,87 @@ class StrategicBenchmark:
 
         return warning_message
     
+    # Overwriting so that the share for count metrics is calculated correctly for count metrics.
+    def get_share_totals(self, 
+            numerator_df: pd.DataFrame,
+            metrics: List[dict], 
+            breakout: Optional[str] = None, 
+            query_filters: List[dict] = None
+        ):
+
+        breakout_filters = query_filters.copy()
+        market_filters = [f for f in breakout_filters if
+                          not is_filter_token(f['val']) and f['col'] not in self.dim_hierarchy.owner_cols]
+        
+        if breakout:
+
+            # check if filters are the same for numerator and denominator
+            # if it's the same then calculate contribution to total
+            if market_filters == breakout_filters:
+                groupby = []
+                subject_breakout = breakout
+            # only breakout the denominator if it is not an owner column
+            elif breakout in self.dim_hierarchy.owner_cols:
+                groupby = []
+                subject_breakout = breakout
+            else:
+                groupby = [breakout]
+                subject_filters = [f for f in breakout_filters if
+                        not is_filter_token(f['val']) and f['col'] in self.dim_hierarchy.owner_cols]
+                subject_breakout = subject_filters[0]['col'] if subject_filters else None
+
+            denominator_df = calculate_market_share_denominator(
+                pull_data_func = self.pull_data_func,
+                metrics=metrics,
+                breakouts=groupby,
+                filters=market_filters,
+                subject_breakout=subject_breakout
+            )
+
+            if groupby:
+                df = numerator_df.merge(denominator_df, on=groupby, how='left', suffixes=('', '__market'))
+            else:
+                # add __market to the cols of denominator_df
+                denominator_df = denominator_df.add_suffix('__market')
+                # Use merge with cross join to apply denominator values to all rows
+                df = numerator_df.merge(denominator_df, how='cross')
+
+        else:
+            subject_filters = [f for f in breakout_filters if
+                    not is_filter_token(f['val']) and f['col'] in self.dim_hierarchy.owner_cols]
+            subject_breakout = subject_filters[0]['col'] if subject_filters else None
+            denominator_df = calculate_market_share_denominator(
+                pull_data_func = self.pull_data_func,
+                metrics=metrics,
+                filters=market_filters,
+                subject_breakout=subject_breakout
+            )
+
+            denominator_df = denominator_df.add_suffix('__market')
+            df = pd.concat([numerator_df, denominator_df], axis=1)
+
+        for metric in metrics:
+            metric_name = metric['name']
+            df[f"{metric_name}"] = df[f"{metric_name}"].div(
+                df[f"{metric_name}__market"].replace(0, np.nan),
+                fill_value=0
+            )
+
+        # drop __market cols
+        df = df.drop(columns=[col for col in df.columns if '__market' in col])
+
+        return df
+    
     def get_breakout_data(self, 
         metrics: List[dict], 
-        breakouts: Optional[List[str]] = None, 
+        breakout: Optional[str] = None, 
         query_filters: List[dict] = None
     ) -> pd.DataFrame:
         
         if not query_filters:
             query_filters = []
+
+        breakouts = [breakout] if breakout else []
 
         dfs = []
 
@@ -102,6 +179,7 @@ class StrategicBenchmark:
         cocktail_mentions_metric = [metric for metric in metrics if metric['name'].lower() == StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value.lower()]
         single_spirit_mentions_metric = [metric for metric in metrics if metric['name'].lower() == StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value.lower()]
         average_monthly_mentions_metric = [metric for metric in metrics if metric['name'].lower() == StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value.lower()]
+        menu_placement_share_metric = [metric for metric in metrics if metric['name'].lower() == MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value.lower()]
 
         if cocktail_mentions_metric:
 
@@ -173,6 +251,24 @@ class StrategicBenchmark:
             if not average_monthly_mentions_df.empty:
                 dfs.append(average_monthly_mentions_df)
 
+        if menu_placement_share_metric and not breakout_df.empty:
+
+            keep_cols = breakouts + [MenuColNames.MENU_PLACEMENTS_METRIC.value]
+
+            menu_placement_share_df = self.get_share_totals(
+                numerator_df=breakout_df[keep_cols],
+                metrics=[menu_placement_metric],
+                breakout=breakout,
+                query_filters=query_filters
+            )
+
+            menu_placement_share_df = menu_placement_share_df.rename(columns={
+                menu_placement_metric['name']: MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value
+            })
+
+            if not menu_placement_share_df.empty:
+                dfs.append(menu_placement_share_df)
+
         if not dfs:
             exit_with_status("No data found for the given filters")
 
@@ -201,7 +297,7 @@ class StrategicBenchmark:
         growth_type_label = self.get_growth_type_label(growth_type)
         return f"{growth_type_label} %"
 
-    def calculate_growth(self, subject_df: pd.DataFrame, subject_val_col: str, subject_val_prev_col: str, growth_type: str = "Y/Y") -> pd.DataFrame:
+    def calculate_growth(self, subject_df: pd.DataFrame, subject_val_col: str, subject_val_prev_col: str, metrics: List[dict], growth_type: str = "Y/Y") -> pd.DataFrame:
 
         '''
         Calculate the growth for the subject.
@@ -210,11 +306,17 @@ class StrategicBenchmark:
         growth_diff_col = self.get_growth_diff_col(growth_type)
         growth_pct_col = self.get_growth_pct_col(growth_type)
 
+        hide_percentage_metrics = [metric['name'].lower() for metric in metrics if metric.get("hide_percentage_change")]
+
         subject_df[growth_diff_col] = subject_df[subject_val_col] - subject_df[subject_val_prev_col]
         subject_df[growth_pct_col] = np.where(
-            subject_df[subject_val_prev_col] != 0,
-            np.round(subject_df[growth_diff_col] / np.abs(subject_df[subject_val_prev_col]), 6),
-            np.nan
+            subject_df.index.isin(hide_percentage_metrics),
+            subject_df[growth_diff_col],
+            np.where(
+                subject_df[subject_val_prev_col] != 0,
+                np.round(subject_df[growth_diff_col] / np.abs(subject_df[subject_val_prev_col]), 6),
+                np.nan
+            )
         )
 
         return subject_df
@@ -240,7 +342,7 @@ class StrategicBenchmark:
         # merge on index of dfs
         subject_df = subject_df.merge(subject_growth_df, left_index=True, right_index=True, how='left')
 
-        subject_df = self.calculate_growth(subject_df, subject_val_col, subject_value_prev_col, growth_type)
+        subject_df = self.calculate_growth(subject_df, subject_val_col, subject_value_prev_col, metrics, growth_type)
 
         subject_df.drop(columns=[subject_value_prev_col], inplace=True)
 
@@ -288,7 +390,7 @@ class StrategicBenchmark:
             facts_df.loc[metric_name] = pd.Series({
                 col: self.helper.get_formatted_num(
                     row[col],
-                    metric['growth_fmt'] if col == growth_pct_col else metric['fmt'],
+                    metric['growth_fmt'] if col == growth_pct_col or (col == growth_diff_col and metric.get("hide_percentage_change")) else metric['fmt'],
                     signed = col == growth_diff_col
                 )
                 for col in facts_df.columns
@@ -370,7 +472,7 @@ class StrategicBenchmark:
 
         breakout_df = self.get_breakout_data(
             metrics=parameters.metrics,
-            breakouts=[breakout_dim],
+            breakout=breakout_dim,
             query_filters=parameters.query_filters + ([current_period_filter] if current_period_filter else [])
         )
 

@@ -68,6 +68,7 @@ class MetricGroup(Enum):
     VENUE_PRESENCE = "Venue Presence"
     GEOGRAPHICAL_EXPANSION = "Geographical Expansion"
     VELOCITY = "Velocity"
+    MARKET_SHARE_AND_PLACEMENT_HEALTH = "Market Share & Placement Health"
 
 DEFAULT_METRICS = [
     MenuColNames.MENU_PLACEMENTS_METRIC.value, 
@@ -76,7 +77,8 @@ DEFAULT_METRICS = [
     MenuColNames.VENUE_PLACEMENTS_METRIC.value,
     MenuColNames.STATE_MENTIONS_METRIC.value,
     MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value,
-    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value
+    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value,
+    MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value
 ]
 
 DEFAULT_METRIC_GROUP_MAPPING = {
@@ -86,7 +88,8 @@ DEFAULT_METRIC_GROUP_MAPPING = {
     StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value: MetricGroup.MENU_PRESENCE.value,
     MenuColNames.STATE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value,
     MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value,
-    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value: MetricGroup.VELOCITY.value
+    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value: MetricGroup.VELOCITY.value,
+    MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value: MetricGroup.MARKET_SHARE_AND_PLACEMENT_HEALTH.value
 }
 
 @dataclass
