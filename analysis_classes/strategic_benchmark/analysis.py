@@ -97,10 +97,11 @@ class StrategicBenchmark:
         if not breakout_df.empty:
             dfs.append(breakout_df)
 
-        # get single spirit and cocktail mentions
+        # get single spirit and cocktail mentions, average monthly mentions
+        menu_placement_metric = self.helper.get_metric_prop(MenuColNames.MENU_PLACEMENTS_METRIC.value, self.metric_props)
         cocktail_mentions_metric = [metric for metric in metrics if metric['name'].lower() == StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value.lower()]
         single_spirit_mentions_metric = [metric for metric in metrics if metric['name'].lower() == StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value.lower()]
-        menu_placement_metric = self.helper.get_metric_prop(MenuColNames.MENU_PLACEMENTS_METRIC.value, self.metric_props)
+        average_monthly_mentions_metric = [metric for metric in metrics if metric['name'].lower() == StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value.lower()]
 
         if cocktail_mentions_metric:
 
@@ -147,6 +148,30 @@ class StrategicBenchmark:
 
             if not single_spirit_mentions_df.empty:
                 dfs.append(single_spirit_mentions_df)
+
+        if average_monthly_mentions_metric:
+
+            month_col = MenuColNames.MAX_TIME_MONTH_COL.value
+            average_monthly_breakouts = [month_col] + (breakouts if breakouts else [])
+
+            average_monthly_mentions_df = self.pull_data_func(
+                metrics=[menu_placement_metric],
+                breakouts=average_monthly_breakouts,
+                filters=query_filters
+            )
+
+            # get the monthly average for each breakout
+            if breakouts:
+                average_monthly_mentions_df = average_monthly_mentions_df.groupby(breakouts).mean().reset_index()
+            else:
+                average_monthly_mentions_df = average_monthly_mentions_df.groupby(lambda x: True).mean().reset_index(drop=True)
+
+            average_monthly_mentions_df = average_monthly_mentions_df.rename(columns={
+                menu_placement_metric['name']: StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value
+            })
+
+            if not average_monthly_mentions_df.empty:
+                dfs.append(average_monthly_mentions_df)
 
         if not dfs:
             exit_with_status("No data found for the given filters")

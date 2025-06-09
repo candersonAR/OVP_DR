@@ -45,6 +45,7 @@ Summary:"""
 class StrategicBenchmarkCustomMetrics(Enum):
     COCKTAIL_MENTIONS = "cocktail_mentions"
     SINGLE_SPIRIT_MENTIONS = "single_spirit_mentions"
+    AVERAGE_MONTHLY_MENTIONS = "average_monthly_mentions"
 
 STRAGEGIC_BENCHMARK_CUSTOM_METRIC_PROPS = {
     StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value: {
@@ -54,6 +55,11 @@ STRAGEGIC_BENCHMARK_CUSTOM_METRIC_PROPS = {
     StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value: {
         "name": StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value,
         "label": "Single Spirit Mentions"
+    },
+    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value: {
+        "name": StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value,
+        "label": "Average Monthly Mentions",
+        "fmt": ",.2f"
     }
 }
 
@@ -61,6 +67,7 @@ class MetricGroup(Enum):
     MENU_PRESENCE = "Menu Presence"
     VENUE_PRESENCE = "Venue Presence"
     GEOGRAPHICAL_EXPANSION = "Geographical Expansion"
+    VELOCITY = "Velocity"
 
 DEFAULT_METRICS = [
     MenuColNames.MENU_PLACEMENTS_METRIC.value, 
@@ -69,6 +76,7 @@ DEFAULT_METRICS = [
     MenuColNames.VENUE_PLACEMENTS_METRIC.value,
     MenuColNames.STATE_MENTIONS_METRIC.value,
     MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value,
+    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value
 ]
 
 DEFAULT_METRIC_GROUP_MAPPING = {
@@ -77,7 +85,8 @@ DEFAULT_METRIC_GROUP_MAPPING = {
     StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value: MetricGroup.MENU_PRESENCE.value,
     StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value: MetricGroup.MENU_PRESENCE.value,
     MenuColNames.STATE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value,
-    MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value
+    MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value,
+    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value: MetricGroup.VELOCITY.value
 }
 
 @dataclass

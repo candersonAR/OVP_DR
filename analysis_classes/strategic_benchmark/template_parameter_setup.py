@@ -47,7 +47,8 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
 
         for metric in [
             StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value,
-            StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value
+            StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value,
+            StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value
         ]:
             metric_props[metric] = {**menu_placement_metric, **STRAGEGIC_BENCHMARK_CUSTOM_METRIC_PROPS[metric]}
         
