@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Optional
+from enum import Enum
 import pandas as pd
 from ar_analytics.defaults import SkillConfig, DEFAULT_MAX_PROMPT
 from ar_analytics.helpers.utils import Connector
@@ -53,3 +54,15 @@ class BdiCdiRunResult:
     subtitle: str
     warnings: Optional[str] = None
     general_footnote: Optional[str] = None
+  
+class FactColumnFormat(Enum):  # Define formats for fact columns
+    BDI = ("BDI", ",.2f", False)
+    CDI = ("CDI", ",.2f", False)
+    OPPORTUNITY_SCORE = ("opportunity_score", ",.2f", True)
+    BRAND_SHARE = ("brand_share", ",.2%", False)
+    CATEGORY_SHARE = ("category_share", ",.2%", False)
+
+    def __init__(self, col_name: str, fmt: str, signed: bool):
+        self.col_name = col_name
+        self.fmt = fmt
+        self.signed = signed

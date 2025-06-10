@@ -7,7 +7,7 @@ from skill_framework import ExportData, SkillOutput
 from overproof_utilities import MenuColNames, OverproofSharedFn
 from overproof_visualization_utilities import render_layout
 
-from analysis_classes.bdi_cdi_opportunity.defaults import BdiCdiInit, BdiCdiParameters, BdiCdiRunResult
+from analysis_classes.bdi_cdi_opportunity.defaults import BdiCdiInit, BdiCdiParameters, BdiCdiRunResult, FactColumnFormat
 
 class BdiCdiOpportunity:
     def __init__(self, init: BdiCdiInit):
@@ -86,9 +86,11 @@ class BdiCdiOpportunity:
         title = f"BDI/CDI Opportunity for {parameters.brand_filter} in {parameters.category_filter}"
         subtitle = f"{parameters.date_labels.get('start_date')} to {parameters.date_labels.get('end_date')}"
 
+        # Prepare formatted facts dataframe for narrative insights
+        facts_df = self.get_facts_df(table_df)
         return BdiCdiRunResult(
             table_df=table_df,
-            fact_dfs=[],
+            fact_dfs=[facts_df],
             followups=[],
             title=title,
             subtitle=subtitle
@@ -121,3 +123,17 @@ class BdiCdiOpportunity:
             followup_questions=run_result.followups,
             export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
         )
+    
+    def get_facts_df(self, table_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Format numeric columns of the BDI/CDI table for narrative facts.
+        """
+        facts_df = table_df.copy()
+        # Build formatting map from defaults
+        fmt_map = {f.col_name: (f.fmt, f.signed) for f in FactColumnFormat}
+        for col, (fmt, signed) in fmt_map.items():
+            if col in facts_df.columns:
+                facts_df[col] = facts_df[col].apply(
+                    lambda x: self.helper.get_formatted_num(x, fmt, signed=signed)
+                )
+        return facts_df
