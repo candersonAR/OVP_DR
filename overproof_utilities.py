@@ -56,6 +56,9 @@ class MenuColNames(Enum):
     VENUE_NAME_COL = "venue__name"
     VENUE_CATEGORY_COL = "venue__category_name"
     VENUE_PREMISE_TYPE_COL = "venue__premise_type"
+    # Added for BDI/CDI breakout dimensions
+    STATE_NAME_COL = "state_name"
+    VENUE__COUNTY_COL = "venue__county"
     CHAIN_NAME_COL = "chain_name"
     PRODUCT_ID_COL = "product_id"
 

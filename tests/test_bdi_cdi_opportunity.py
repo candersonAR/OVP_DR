@@ -32,7 +32,7 @@ class TestBdiCdiOpportunityGuardrails(TestBdiCdiOpportunity):
     def test_missing_brand(self):
         params = {
             "category_filter": ["vodka"],
-            "breakout": "state_name",
+            "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": []
         }
@@ -41,7 +41,7 @@ class TestBdiCdiOpportunityGuardrails(TestBdiCdiOpportunity):
     def test_missing_category(self):
         params = {
             "brand_filter": ["Papa's Pilar"],
-            "breakout": "state_name",
+            "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": []
         }
@@ -51,7 +51,7 @@ class TestBdiCdiOpportunityGuardrails(TestBdiCdiOpportunity):
         params = {
             "brand_filter": ["Papa's Pilar", "Stiegl"],
             "category_filter": ["vodka"],
-            "breakout": "state_name",
+            "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": []
         }
@@ -61,7 +61,7 @@ class TestBdiCdiOpportunityGuardrails(TestBdiCdiOpportunity):
         params = {
             "brand_filter": ["Papa's Pilar"],
             "category_filter": ["vodka", "gin"],
-            "breakout": "state_name",
+            "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": []
         }
@@ -80,7 +80,7 @@ class TestBdiCdiOpportunityGuardrails(TestBdiCdiOpportunity):
         params = {
             "brand_filter": ["Papa's Pilar"],
             "category_filter": ["vodka"],
-            "breakout": "city",
+            "breakout": "city",  # invalid breakout
             "periods": ["2024"],
             "other_filters": []
         }
@@ -94,7 +94,7 @@ class TestBdiCdiOpportunityResults(TestBdiCdiOpportunity):
         params = {
             "brand_filter": ["Papa's Pilar"],
             "category_filter": ["vodka"],
-            "breakout": "state_name",
+            "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": []
         }
@@ -104,7 +104,7 @@ class TestBdiCdiOpportunityResults(TestBdiCdiOpportunity):
         params = {
             "brand_filter": ["Papa's Pilar"],
             "category_filter": ["vodka"],
-            "breakout": "venue__county",
+            "breakout": MenuColNames.VENUE__COUNTY_COL.value,
             "periods": ["2024"],
             "other_filters": []
         }
@@ -114,7 +114,7 @@ class TestBdiCdiOpportunityResults(TestBdiCdiOpportunity):
         params = {
             "brand_filter": ["Papa's Pilar"],
             "category_filter": ["vodka"],
-            "breakout": "state_name",
+            "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": [
                 {"col": MenuColNames.COUNTRY_CODE_COL.value, "op": "=", "val": "usa"}
