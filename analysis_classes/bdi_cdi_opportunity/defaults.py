@@ -13,7 +13,7 @@ bdi_cdi_config = SkillConfig(
     description="Identify geographic markets where a brand is underperforming relative to category strength — helping prioritize state/county-level expansion, defend existing strongholds, and eliminate low-ROI push zones.",
     capabilities="Compute Brand Development Index (BDI), Category Development Index (CDI), Opportunity Score, Brand Share, and Category Share for each market.",
     limitations="Must provide both brand and category filters.",
-    example_questions=["Where are the BDI/CDI opportunities for Chocapic within its category?"],
+    example_questions="Where are the BDI/CDI opportunities for Chocapic within its category?",
     parameter_guidance="""
 Use brand_filter and category_filter to specify the brand and category of interest.
 The breakout parameter accepts 'state_name' or 'venue__county'.

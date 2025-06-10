@@ -2,6 +2,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 from ar_analytics import pull_data
+from ar_analytics.helpers.utils import exit_with_status
 from skill_framework import ExportData, SkillOutput
 from overproof_utilities import MenuColNames, OverproofSharedFn
 from overproof_visualization_utilities import render_layout
@@ -46,6 +47,9 @@ class BdiCdiOpportunity:
             breakouts=[breakout],
             filters=other_filters + period_filters
         )
+        # Guardrail for no data
+        if total_df.empty or brand_df.empty or cat_df.empty:
+            exit_with_status("No data found for the given filters")
 
         # Rename for clarity
         total_df = total_df.rename(columns={metric["name"]: "total_placements"})
