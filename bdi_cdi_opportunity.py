@@ -47,6 +47,11 @@ logger = logging.getLogger(__name__)
             description="Additional filters"
         ),
         SkillParameter(
+            name="limit_n",
+            description="limit the number of values by this number",
+            default_value=10
+        ),
+        SkillParameter(
             name="max_prompt",
             parameter_type="prompt",
             description="Prompt being used for max response.",

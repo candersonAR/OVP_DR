@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from typing import Tuple, List
-from ar_analytics.helpers.utils import TemplateParameterSetup, SkillPlatform, exit_with_status, Connector
+from ar_analytics.helpers.utils import TemplateParameterSetup, SkillPlatform, exit_with_status, Connector, NO_LIMIT_N
 from skill_framework import SkillInput, ParameterDisplayDescription
 from overproof_utilities import MenuColNames
 from analysis_classes.bdi_cdi_opportunity.defaults import BdiCdiInit, BdiCdiParameters
@@ -42,7 +42,7 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
     def map_parameters(self, parameters: SkillInput) -> Tuple[BdiCdiInit, BdiCdiParameters]:
 
         # TODO: Remove this and utilize the default mapping
-        param_dict = {"periods": [], "other_filters": [], "brand_filter": None, "category_filter": None, "breakout": None}
+        param_dict = {"periods": [], "other_filters": [], "brand_filter": None, "category_filter": None, "breakout": None, "limit_n": 10}
         print(f"Skill received following parameters: {parameters.arguments}")
         # Update param_dict with values from parameters.arguments if they exist
         for key in param_dict:
@@ -134,6 +134,15 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
             "compare_end_date": comp_end_date
         }
 
+        limit_n = None
+
+        # convert limit_n to an int
+        if hasattr(env, "limit_n") and env.limit_n:
+            if env.limit_n == NO_LIMIT_N:
+                limit_n = None
+            else:
+                limit_n = self.convert_to_int(env.limit_n)
+
         bdi_init = BdiCdiInit(
             sql_exec=con,
             dim_hierarchy=dim_hierarchy,
@@ -151,7 +160,8 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
             breakout=breakout,
             other_filters=query_filters,
             period_filters=period_filters,
-            date_labels=date_labels
+            date_labels=date_labels,
+            limit_n=limit_n
         )
 
         return bdi_init, bdi_params

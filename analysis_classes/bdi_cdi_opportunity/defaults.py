@@ -45,7 +45,8 @@ class BdiCdiParameters:
     other_filters: Optional[List[dict]]
     period_filters: Optional[List[dict]]
     date_labels: Optional[dict]
-
+    limit_n: Optional[int] = None
+    
 @dataclass
 class BdiCdiRunResult:
     table_df: pd.DataFrame

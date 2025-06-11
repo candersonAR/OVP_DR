@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import pandas as pd
 import numpy as np
 from ar_analytics import pull_data
@@ -23,6 +23,7 @@ class BdiCdiOpportunity:
         self.compare_date_warning_msg = init.compare_date_warning_msg
 
         self.helper = OverproofSharedFn()
+        self.notes = []
 
     def get_title_and_subtitle(self, parameters: BdiCdiParameters) -> Tuple[str, str]:
 
@@ -51,6 +52,21 @@ class BdiCdiOpportunity:
         subtitle = f"{subtitle}{old_get_date_label_str(parameters.date_labels, prefix=' • ')}"
 
         return title, subtitle
+    
+    def rank_df_and_limit_to_top_n(self, df: pd.DataFrame, sort_col: str, limit_n: Optional[int] = None) -> pd.DataFrame:
+        """
+        Rank the dataframe by the given metric and breakout.
+        """
+
+        if not limit_n:
+            return df
+        
+        df = df.sort_values(by=sort_col, ascending=False)
+
+        if df.shape[0] > limit_n:
+            self.notes.append(f"Top {limit_n} by {sort_col} shown, {df.shape[0] - limit_n} not shown")
+
+        return df.head(limit_n)
 
     def get_market_share_df(self, share_metric: dict, breakout: str, brand_filter: dict, cat_filter: dict, other_filters: list, period_filters: list) -> pd.DataFrame:
 
@@ -139,14 +155,22 @@ class BdiCdiOpportunity:
         # Select output columns
         table_df = menu_placements_market_share_df[[breakout, "BDI", "CDI", "opportunity_score", f"brand_{menu_placements_share_metric['name']}", f"category_{menu_placements_share_metric['name']}", "recommended"]]
 
+        table_df = self.rank_df_and_limit_to_top_n(table_df, "opportunity_score", parameters.limit_n)
+
         # Title and subtitle
         title, subtitle = self.get_title_and_subtitle(parameters)
 
         # Prepare formatted facts dataframe for narrative insights
-        facts_df = self.get_facts_df(table_df, menu_placements_share_metric, breakout)
+        fact_dfs = []
+        formatted_df = self.get_facts_df(table_df, menu_placements_share_metric, breakout, other_filters)
+        fact_dfs.append(formatted_df)
+
+        if self.notes:
+            self.notes.append(pd.DataFrame({"Note to the assistant:": self.notes}))
+        
         return BdiCdiRunResult(
-            table_df=table_df,
-            fact_dfs=[facts_df],
+            table_df=formatted_df,
+            fact_dfs=fact_dfs,
             followups=[],
             title=title,
             subtitle=subtitle
@@ -180,7 +204,7 @@ class BdiCdiOpportunity:
             export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
         )
     
-    def get_facts_df(self, table_df: pd.DataFrame, share_metric: dict, breakout: str) -> pd.DataFrame:
+    def get_facts_df(self, table_df: pd.DataFrame, share_metric: dict, breakout: str, query_filters: List[dict]) -> pd.DataFrame:
         """
         Format numeric columns of the BDI/CDI table for narrative facts.
         """
@@ -216,4 +240,11 @@ class BdiCdiOpportunity:
             "recommended": "Recommended?"
         }
         facts_df = facts_df.rename(columns=rename_map)
+
+        metric_names = [f"brand_{share_metric['name']}", f"category_{share_metric['name']}", "BDI", "CDI", "opportunity_score"]
+
+        facts_df.max_metadata.set_filters(query_filters)
+        facts_df.max_metadata.set_measures(metric_names)
+        facts_df.max_metadata.set_description(f"{', '.join(metric_names)} broken out by {breakout}")
+
         return facts_df
