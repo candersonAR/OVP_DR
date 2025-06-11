@@ -34,7 +34,7 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
 
         return {"col": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "IN", "val": unique_categories[0]}
 
-    def get_pills(self, brand_filter: str, category_filter: str, breakout_pills: List[str], query_filters_pills: List[str], date_labels: dict):
+    def get_pills(self, brand_filter: str, category_filter: str, breakout_pills: List[str], query_filters_pills: List[str], date_labels: dict, limit_n: int):
 
         start_date = date_labels.get("start_date")
         end_date = date_labels.get("end_date")
@@ -61,6 +61,8 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
                 pills.append(ParameterDisplayDescription(key="compare_period", value=f"Compare Period: {compare_start_date}"))
             else:
                 pills.append(ParameterDisplayDescription(key="compare_period", value=f"Compare Period: {compare_start_date} to {compare_end_date}"))
+        if limit_n:
+            pills.append(ParameterDisplayDescription(key="limit_n", value=f"Top {str(limit_n)}"))
         return pills
 
     def map_parameters(self, parameters: SkillInput) -> Tuple[BdiCdiInit, BdiCdiParameters]:
@@ -177,7 +179,7 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
         bdi_init = BdiCdiInit(
             sql_exec=con,
             dim_hierarchy=dim_hierarchy,
-            pills=self.get_pills(brand, category, breakout_pills, query_filters_pills, date_labels),
+            pills=self.get_pills(brand, category, breakout_pills, query_filters_pills, date_labels, limit_n),
             metric_props=self.get_metric_props(),
             dim_props=self.get_dimension_props(),
             max_prompt=parameters.arguments.max_prompt,
