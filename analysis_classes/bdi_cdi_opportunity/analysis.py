@@ -25,6 +25,16 @@ class BdiCdiOpportunity:
         self.helper = OverproofSharedFn()
         self.notes = []
 
+        # hardcoded column names
+        self.bdi_col = "BDI"
+        self.cdi_col = "CDI"
+        self.opportunity_score_col = "Opportunity Score"
+        self.recommended_col = "Recommended?"
+
+        self.brand_suffix = "brand_"
+        self.category_suffix = "category_"
+        self.total_suffix = "total_"
+
     def get_title_and_subtitle(self, parameters: BdiCdiParameters) -> Tuple[str, str]:
 
         title = old_get_filters_headline(
@@ -107,52 +117,53 @@ class BdiCdiOpportunity:
             exit_with_status(f"No data found for the given filters")
 
         # Rename for clarity
-        total_df = total_df.rename(columns={component_metric["name"]: f"total_{component_metric['name']}" for component_metric in component_metrics})
-        brand_df = brand_df.rename(columns={component_metric["name"]: f"brand_{component_metric['name']}" for component_metric in component_metrics})
-        cat_df = cat_df.rename(columns={component_metric["name"]: f"category_{component_metric['name']}" for component_metric in component_metrics})
+        total_df = total_df.rename(columns={component_metric["name"]: f"{self.total_suffix}{component_metric['name']}" for component_metric in component_metrics})
+        brand_df = brand_df.rename(columns={component_metric["name"]: f"{self.brand_suffix}{component_metric['name']}" for component_metric in component_metrics})
+        cat_df = cat_df.rename(columns={component_metric["name"]: f"{self.category_suffix}{component_metric['name']}" for component_metric in component_metrics})
 
         # Merge data
         df = total_df
         if not brand_df.empty:
-            brand_cols = [f"brand_{component_metric['name']}" for component_metric in component_metrics]
+            brand_cols = [f"{self.brand_suffix}{component_metric['name']}" for component_metric in component_metrics]
             df = df.merge(brand_df[[breakout, *brand_cols]], on=breakout, how="left")
         else:
             for component_metric in component_metrics:
-                df[f"brand_{component_metric['name']}"] = 0
+                df[f"{self.brand_suffix}{component_metric['name']}"] = 0
         if not cat_df.empty:
-            cat_cols = [f"category_{component_metric['name']}" for component_metric in component_metrics]
+            cat_cols = [f"{self.category_suffix}{component_metric['name']}" for component_metric in component_metrics]
             df = df.merge(cat_df[[breakout, *cat_cols]], on=breakout, how="left")
         else:
             for component_metric in component_metrics:
-                df[f"category_{component_metric['name']}"] = 0
+                df[f"{self.category_suffix}{component_metric['name']}"] = 0
     
         # Compute shares
         for share_metric in share_metrics:
             component_metric_name = share_metric.get("component_metric")
-            df[f"brand_{share_metric['name']}"] = df[f"brand_{component_metric_name}"].div(
-                df[f"total_{component_metric_name}"].replace(0, np.nan),
+            df[f"{self.brand_suffix}{share_metric['name']}"] = df[f"{self.brand_suffix}{component_metric_name}"].div(
+                df[f"{self.total_suffix}{component_metric_name}"].replace(0, np.nan),
                 fill_value=0
             )
-            df[f"category_{share_metric['name']}"] = df[f"category_{component_metric_name}"].div(
-                df[f"total_{component_metric_name}"].replace(0, np.nan),
+            df[f"{self.category_suffix}{share_metric['name']}"] = df[f"{self.category_suffix}{component_metric_name}"].div(
+                df[f"{self.total_suffix}{component_metric_name}"].replace(0, np.nan),
                 fill_value=0
             )
-            df = df.drop(columns=[f"brand_{component_metric_name}", f"category_{component_metric_name}", f"total_{component_metric_name}"])
+            df = df.drop(columns=[f"{self.brand_suffix}{component_metric_name}", 
+                                f"{self.category_suffix}{component_metric_name}", 
+                                f"{self.total_suffix}{component_metric_name}"])
 
         return df
     
     def calculate_bdi_cdi_opportunity_score(self, df: pd.DataFrame, menu_placements_share_metric: dict, venue_share_metric: dict) -> pd.DataFrame:
-
         # TODO: Fill in NaNs with 0, ie where the venue share is 0, or not?
-        df["BDI"] = df[f"brand_{menu_placements_share_metric['name']}"].div(
-            df[f"brand_{venue_share_metric['name']}"].replace(0, np.nan),
+        df[self.bdi_col] = df[f"{self.brand_suffix}{menu_placements_share_metric['name']}"].div(
+            df[f"{self.brand_suffix}{venue_share_metric['name']}"].replace(0, np.nan),
             fill_value=0
         )
-        df["CDI"] = df[f"category_{menu_placements_share_metric['name']}"].div(
-            df[f"category_{venue_share_metric['name']}"].replace(0, np.nan),
+        df[self.cdi_col] = df[f"{self.category_suffix}{menu_placements_share_metric['name']}"].div(
+            df[f"{self.category_suffix}{venue_share_metric['name']}"].replace(0, np.nan),
             fill_value=0
         )
-        df["opportunity_score"] = df["CDI"] - df["BDI"]
+        df[self.opportunity_score_col] = df[self.cdi_col] - df[self.bdi_col]
 
         return df
     
@@ -163,13 +174,13 @@ class BdiCdiOpportunity:
         # Create recommendation based on BDI and CDI values
         conditions = [
             # High CDI / Low BDI - White space, Target for expansion
-            (df['CDI'] > THRESHOLD) & (df['BDI'] < THRESHOLD),
+            (df[self.cdi_col] > THRESHOLD) & (df[self.bdi_col] < THRESHOLD),
             # High CDI / High BDI - Stronghold, Defend & optimize
-            (df['CDI'] > THRESHOLD) & (df['BDI'] > THRESHOLD),
+            (df[self.cdi_col] > THRESHOLD) & (df[self.bdi_col] > THRESHOLD),
             # Low CDI / High BDI - Overweight risk, Rebalance or reduce
-            (df['CDI'] < THRESHOLD) & (df['BDI'] > THRESHOLD),
+            (df[self.cdi_col] < THRESHOLD) & (df[self.bdi_col] > THRESHOLD),
             # Low CDI / Low BDI - Low value, Deprioritize
-            (df['CDI'] < THRESHOLD) & (df['BDI'] < THRESHOLD)
+            (df[self.cdi_col] < THRESHOLD) & (df[self.bdi_col] < THRESHOLD)
         ]
         
         choices = [
@@ -179,7 +190,7 @@ class BdiCdiOpportunity:
             "Deprioritize"
         ]
         
-        df["recommended"] = np.select(conditions, choices, default="Monitor")
+        df[self.recommended_col] = np.select(conditions, choices, default="Monitor")
         
         return df
 
@@ -205,8 +216,11 @@ class BdiCdiOpportunity:
         market_share_df = self.calculate_bdi_cdi_opportunity_score(market_share_df, menu_placements_share_metric, venue_share_metric)
         market_share_df = self.get_reccomendation(market_share_df)
 
-        table_df = market_share_df[[breakout, "BDI", "CDI", "opportunity_score", f"brand_{menu_placements_share_metric['name']}", f"category_{menu_placements_share_metric['name']}", "recommended"]]
-        table_df = self.rank_df_and_limit_to_top_n(table_df, "opportunity_score", parameters.limit_n)
+        table_df = market_share_df[[breakout, self.bdi_col, self.cdi_col, self.opportunity_score_col, 
+                                  f"{self.brand_suffix}{menu_placements_share_metric['name']}", 
+                                  f"{self.category_suffix}{menu_placements_share_metric['name']}", 
+                                  self.recommended_col]]
+        table_df = self.rank_df_and_limit_to_top_n(table_df, self.opportunity_score_col, parameters.limit_n)
 
         title, subtitle = self.get_title_and_subtitle(parameters)
 
@@ -261,14 +275,14 @@ class BdiCdiOpportunity:
         facts_df = table_df.copy()
 
         format_map = {
-            f"brand_{share_metric['name']}": share_metric.get("fmt", ",.2f"),
-            f"category_{share_metric['name']}": share_metric.get("fmt", ",.2f"),
-            "BDI": ",.2f",
-            "CDI": ",.2f",
-            "opportunity_score": ",.2f"
+            f"{self.brand_suffix}{share_metric['name']}": share_metric.get("fmt", ",.2f"),
+            f"{self.category_suffix}{share_metric['name']}": share_metric.get("fmt", ",.2f"),
+            self.bdi_col: ",.2f",
+            self.cdi_col: ",.2f",
+            self.opportunity_score_col: ",.2f"
         }
 
-        signed_cols = ["opportunity_score"]
+        signed_cols = [self.opportunity_score_col]
 
         for col, fmt in format_map.items():
             if col in facts_df.columns:
@@ -285,16 +299,16 @@ class BdiCdiOpportunity:
 
         rename_map = {
             breakout: breakout_label,
-            f"brand_{share_metric['name']}": f"{brand_val} {share_metric.get('label', share_metric['name'])}",
-            f"category_{share_metric['name']}": f"{cat_val} {share_metric.get('label', share_metric['name'])}",
-            "BDI": "BDI",
-            "CDI": "CDI",
-            "opportunity_score": "Opportunity Score",
-            "recommended": "Recommended?"
+            f"{self.brand_suffix}{share_metric['name']}": f"{brand_val} {share_metric.get('label', share_metric['name'])}",
+            f"{self.category_suffix}{share_metric['name']}": f"{cat_val} {share_metric.get('label', share_metric['name'])}"
         }
         facts_df = facts_df.rename(columns=rename_map)
 
-        metric_names = [f"brand_{share_metric['name']}", f"category_{share_metric['name']}", "BDI", "CDI", "opportunity_score"]
+        metric_names = [f"{self.brand_suffix}{share_metric['name']}", 
+                       f"{self.category_suffix}{share_metric['name']}", 
+                       self.bdi_col, 
+                       self.cdi_col, 
+                       self.opportunity_score_col]
 
         facts_df.max_metadata.set_filters(query_filters)
         facts_df.max_metadata.set_measures(metric_names)
