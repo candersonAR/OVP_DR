@@ -5,10 +5,34 @@ from skill_framework import SkillInput, ParameterDisplayDescription
 from overproof_utilities import MenuColNames
 from analysis_classes.bdi_cdi_opportunity.defaults import BdiCdiInit, BdiCdiParameters
 
+from overproof_data_provider import DataProvider
+
 class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
     def __init__(self):
         sp = SkillPlatform()
         super().__init__(sp=sp)
+
+    def get_category_filter(self, brand_filter: dict, metric_props: dict) -> dict:
+
+        df_provider = DataProvider()
+
+        menu_placements_metric = self.helper.get_metric_prop(MenuColNames.MENU_PLACEMENTS_METRIC.value, metric_props)
+
+        categories_df = df_provider.pull_data(
+            metrics=[menu_placements_metric],
+            breakouts=[MenuColNames.PRODUCT_CATEGORY_NAME_COL.value],
+            filters=[brand_filter]
+        )
+
+        # In case of multiple categories, get the category with the highest menu placements
+        categories_df = categories_df.sort_values(by=MenuColNames.MENU_PLACEMENTS_METRIC.value, ascending=False)
+
+        unique_categories = categories_df[MenuColNames.PRODUCT_CATEGORY_NAME_COL.value].unique().tolist()
+
+        if not unique_categories:
+            exit_with_status(f"No categories found for the given brand: {brand_filter.get('val')}")
+
+        return {"col": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "IN", "val": unique_categories[0]}
 
     def get_pills(self, brand_filter: str, category_filter: str, breakout_pills: List[str], query_filters_pills: List[str], date_labels: dict):
 
@@ -59,13 +83,13 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
 
         if not brand:
             exit_with_status("Please provide a brand to analyze.")
+        else:
+            brand_filter = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": brand}
 
         if not category:
-            exit_with_status("Please provide a category to analyze.")
-
-        # Build query filters
-        brand_filter = {"col": MenuColNames.BRAND_NAME_COL.value, "op": "=", "val": brand}
-        category_filter = {"col": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": category}
+            category_filter = self.get_category_filter(brand_filter, self.get_metric_props())
+        else:
+            category_filter = {"col": MenuColNames.PRODUCT_CATEGORY_NAME_COL.value, "op": "=", "val": category}
 
         # Setup DB connection
         database_id = self.dataset_metadata.get("database_id")
@@ -74,12 +98,19 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
                         limit=self.sql_row_limit)
         _, dim_hierarchy = self.sp.data.get_dimension_hierarchy()
 
+        if not env.breakout:
+            exit_with_status("Please provide a breakout.")
+
+        if env.breakout and type(env.breakout) is list:
+            env.breakout = env.breakout[0]
+
         ## Parse breakout dims to the sql columns
         breakouts, breakout_pills = self.parse_breakout_dims([env.breakout])
-
-        if len(breakouts) != 1:
-            exit_with_status("Please provide exactly one breakout.")
         breakout = breakouts[0]
+
+        # TODO: Remove this, currently venue county isn't in the data
+        if env.breakout == MenuColNames.VENUE__COUNTY_COL.value:
+            exit_with_status("Venue county breakout is not available in the data yet.")
 
         if breakout not in [MenuColNames.STATE_NAME_COL.value, MenuColNames.VENUE__COUNTY_COL.value]:
             exit_with_status(f"Breakout must be {MenuColNames.STATE_NAME_COL.value} or {MenuColNames.VENUE__COUNTY_COL.value}.")

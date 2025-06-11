@@ -31,7 +31,7 @@ class TestBdiCdiOpportunity:
 class TestBdiCdiOpportunityGuardrails(TestBdiCdiOpportunity):
     def test_missing_brand(self):
         params = {
-            "category_filter": ["vodka"],
+            "category_filter": "vodka",
             "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": []
@@ -40,37 +40,17 @@ class TestBdiCdiOpportunityGuardrails(TestBdiCdiOpportunity):
 
     def test_missing_category(self):
         params = {
-            "brand_filter": ["Papa's Pilar"],
+            "brand_filter": "Papa's Pilar",
             "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": []
         }
-        self._assert_runs_with_error(params, ExitFromSkillException)
-
-    def test_multiple_brands(self):
-        params = {
-            "brand_filter": ["Papa's Pilar", "Stiegl"],
-            "category_filter": ["vodka"],
-            "breakout": MenuColNames.STATE_NAME_COL.value,
-            "periods": ["2024"],
-            "other_filters": []
-        }
-        self._assert_runs_with_error(params, ExitFromSkillException)
-
-    def test_multiple_categories(self):
-        params = {
-            "brand_filter": ["Papa's Pilar"],
-            "category_filter": ["vodka", "gin"],
-            "breakout": MenuColNames.STATE_NAME_COL.value,
-            "periods": ["2024"],
-            "other_filters": []
-        }
-        self._assert_runs_with_error(params, ExitFromSkillException)
+        self._assert_runs_without_error(params)
 
     def test_missing_breakout(self):
         params = {
-            "brand_filter": ["Papa's Pilar"],
-            "category_filter": ["vodka"],
+            "brand_filter": "Papa's Pilar",
+            "category_filter": "vodka",
             "periods": ["2024"],
             "other_filters": []
         }
@@ -78,8 +58,8 @@ class TestBdiCdiOpportunityGuardrails(TestBdiCdiOpportunity):
 
     def test_invalid_breakout(self):
         params = {
-            "brand_filter": ["Papa's Pilar"],
-            "category_filter": ["vodka"],
+            "brand_filter": "Papa's Pilar",
+            "category_filter": "vodka",
             "breakout": "city",  # invalid breakout
             "periods": ["2024"],
             "other_filters": []
@@ -117,7 +97,16 @@ class TestBdiCdiOpportunityResults(TestBdiCdiOpportunity):
             "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": [
-                {"col": MenuColNames.COUNTRY_CODE_COL.value, "op": "=", "val": "usa"}
+                {"dim": MenuColNames.COUNTRY_CODE_COL.value, "op": "=", "val": "usa"}
             ]
+        }
+        self._assert_runs_without_error(params)
+
+    def test_red_river_brewing(self):
+        params = {
+            "brand_filter": "Red River Brewing",
+            "breakout": MenuColNames.STATE_NAME_COL.value,
+            "periods": ["2024"],
+            "other_filters": []
         }
         self._assert_runs_without_error(params)
