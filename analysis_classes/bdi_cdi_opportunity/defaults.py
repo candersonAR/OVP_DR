@@ -38,8 +38,8 @@ class BdiCdiInit:
 
 @dataclass
 class BdiCdiParameters:
-    brand_filter: str
-    category_filter: str
+    brand_filter: dict
+    category_filter: dict
     breakout: str
     other_filters: Optional[List[dict]]
     period_filters: Optional[List[dict]]

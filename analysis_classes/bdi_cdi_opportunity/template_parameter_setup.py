@@ -81,8 +81,8 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
             table_viz_layout=parameters.arguments.table_viz_layout
         )
         bdi_params = BdiCdiParameters(
-            brand_filter=brand,
-            category_filter=category,
+            brand_filter=brand_filter,
+            category_filter=category_filter,
             breakout=breakout,
             other_filters=other_filters,
             period_filters=period_filters,
