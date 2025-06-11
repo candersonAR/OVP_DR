@@ -93,7 +93,7 @@ class TestBdiCdiOpportunityResults(TestBdiCdiOpportunity):
     def test_valid_minimal(self):
         params = {
             "brand_filter": "Papa's Pilar",
-            "category_filter": "vodka",
+            "category_filter": "rum",
             "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": []
@@ -103,7 +103,7 @@ class TestBdiCdiOpportunityResults(TestBdiCdiOpportunity):
     def test_valid_with_county(self):
         params = {
             "brand_filter": "Papa's Pilar",
-            "category_filter": "vodka",
+            "category_filter": "rum",
             "breakout": MenuColNames.VENUE__COUNTY_COL.value,
             "periods": ["2024"],
             "other_filters": []
@@ -113,7 +113,7 @@ class TestBdiCdiOpportunityResults(TestBdiCdiOpportunity):
     def test_valid_with_other_filters(self):
         params = {
             "brand_filter": "Papa's Pilar",
-            "category_filter": "vodka",
+            "category_filter": "rum",
             "breakout": MenuColNames.STATE_NAME_COL.value,
             "periods": ["2024"],
             "other_filters": [
