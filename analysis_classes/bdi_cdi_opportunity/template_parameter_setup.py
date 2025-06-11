@@ -42,7 +42,7 @@ class BdiCdiTemplateParameterSetup(TemplateParameterSetup):
     def map_parameters(self, parameters: SkillInput) -> Tuple[BdiCdiInit, BdiCdiParameters]:
 
         # TODO: Remove this and utilize the default mapping
-        param_dict = {"periods": [], "other_filters": [], "brand_filter": None, "category_filter": None, "breakout": None, "limit_n": 10}
+        param_dict = {"periods": [], "other_filters": [], "brand_filter": None, "category_filter": None, "breakout": None, "limit_n": 20}
         print(f"Skill received following parameters: {parameters.arguments}")
         # Update param_dict with values from parameters.arguments if they exist
         for key in param_dict:
