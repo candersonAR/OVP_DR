@@ -1,6 +1,6 @@
 from typing import Dict
 from group_prioritization import group_prioritization
-from skill_framework import SkillInput
+from skill_framework import SkillInput, ExitFromSkillException
 from skill_framework.preview import preview_skill
 from overproof_utilities import MenuColNames
 
@@ -52,10 +52,13 @@ class TestGroupPrioritization:
         })
     
     def test_group_prioritization_multiple_brands(self):
-        
-        self._assert_group_prioritization_runs_without_errors(parameters={
-            'periods': [self.period__ytd],
-            "benchmark_brand": "papa's pilar",
-            'other_filters': [self.filter__brand_name__mijenta, self.filter__brand_name__papa_pilar]
-        })
+        try:
+            self._assert_group_prioritization_runs_without_errors(parameters={
+                'periods': [self.period__ytd],
+                "benchmark_brand": "papa's pilar",
+                'other_filters': [self.filter__brand_name__mijenta, self.filter__brand_name__papa_pilar]
+            })
+            self.fail("Expected ExitFromSkillException was not raised")
+        except ExitFromSkillException as e:
+            assert "Multiple brand filters found" in str(e)
     

@@ -64,7 +64,7 @@ class GroupPrioritization:
         return (numerator / denominator)
 
     def calculate_growth(self, current: float, previous: float, is_share: bool = False) -> float:
-        """Calculate growth - basis points for shares, percentage for other metrics"""
+        """Calculate growth - percentage points for shares, percentage for other metrics"""
         if pd.isna(previous) or previous == 0:
             return np.nan
         
