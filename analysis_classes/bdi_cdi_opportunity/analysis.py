@@ -143,14 +143,15 @@ class BdiCdiOpportunity:
     
     def calculate_bdi_cdi_opportunity_score(self, df: pd.DataFrame, menu_placements_share_metric: dict, venue_share_metric: dict) -> pd.DataFrame:
 
+        # TODO: Fill in NaNs with 0, ie where the venue share is 0, or not?
         df["BDI"] = df[f"brand_{menu_placements_share_metric['name']}"].div(
             df[f"brand_{venue_share_metric['name']}"].replace(0, np.nan),
             fill_value=0
-        ).fillna(0)
+        )
         df["CDI"] = df[f"category_{menu_placements_share_metric['name']}"].div(
             df[f"category_{venue_share_metric['name']}"].replace(0, np.nan),
             fill_value=0
-        ).fillna(0)
+        )
         df["opportunity_score"] = df["CDI"] - df["BDI"]
 
         return df
