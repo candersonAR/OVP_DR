@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
         SkillParameter(
             name="limit_n",
             description="limit the number of values by this number",
-            default_value=10
+            default_value=20
         ),
         SkillParameter(
             name="max_prompt",
