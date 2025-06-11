@@ -20,6 +20,8 @@ class BdiCdiOpportunity:
         self.insight_prompt = init.insight_prompt
         self.table_viz_layout = init.table_viz_layout
         self.pull_data_func = init.df_provider.pull_data if init.df_provider and hasattr(init.df_provider, "pull_data") else pull_data
+        self.compare_date_warning_msg = init.compare_date_warning_msg
+
         self.helper = OverproofSharedFn()
 
     def get_title_and_subtitle(self, parameters: BdiCdiParameters) -> Tuple[str, str]:

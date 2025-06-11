@@ -35,6 +35,7 @@ class BdiCdiInit:
     insight_prompt: str
     table_viz_layout: str
     df_provider: Optional[object] = None
+    compare_date_warning_msg: Optional[str] = None
 
 @dataclass
 class BdiCdiParameters:

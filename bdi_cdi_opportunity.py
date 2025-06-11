@@ -24,18 +24,16 @@ logger = logging.getLogger(__name__)
         SkillParameter(
             name="brand_filter",
             constrained_to=MenuColNames.BRAND_NAME_COL.value,
-            description="Brand(s) to analyze",
-            is_multi=True
+            description="Brand to analyze"
         ),
         SkillParameter(
             name="category_filter",
             constrained_to=MenuColNames.PRODUCT_CATEGORY_NAME_COL.value,
-            description="Category(s) to analyze",
-            is_multi=True
+            description="Category to analyze"
         ),
         SkillParameter(
             name="breakout",
-            description="Breakout dimension: 'state_name' or 'venue__county'"
+            description=f"Breakout dimension: {MenuColNames.STATE_NAME_COL.value} or {MenuColNames.VENUE__COUNTY_COL.value}"
         ),
         SkillParameter(
             name="periods",
