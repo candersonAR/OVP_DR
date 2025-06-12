@@ -6,7 +6,7 @@ from ar_analytics.helpers.utils import old_get_filters_headline, old_get_date_la
 from skill_framework import ExportData, SkillOutput
 
 from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRIC_GROUP_MAPPING, StrategicBenchmarkCustomMetrics, StrategicBenchmarkInit, StrategicBenchmarkParameters, StrategicBenchmarkRunResult
-from overproof_utilities import MenuColNames, OverproofSharedFn, calculate_market_share_denominator
+from overproof_utilities import MenuColNames, OverproofSharedFn, calculate_market_share_denominator, get_share_totals
 from overproof_visualization_utilities import render_layout
 
 # Do not remove, pulls in max_metadata on all pandas DFs
@@ -184,7 +184,9 @@ class StrategicBenchmark:
 
             keep_cols = breakouts + [MenuColNames.MENU_PLACEMENTS_METRIC.value]
 
-            menu_placement_share_df = self.get_share_totals(
+            menu_placement_share_df = get_share_totals(
+                pull_data_func=self.pull_data_func,
+                dim_hierarchy=self.dim_hierarchy,
                 numerator_df=breakout_df[keep_cols],
                 metrics=[menu_placement_metric],
                 breakout=breakout,
