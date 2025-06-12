@@ -197,7 +197,6 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
             peer_filters=peer_filters,
             query_filters=query_filters,
             period_filters=period_filters,
-            compare_date_warning_msg=compare_date_warning_msg,
             date_labels=date_labels,
             growth_type=growth_type
         )

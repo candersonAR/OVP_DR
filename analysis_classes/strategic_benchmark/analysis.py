@@ -6,7 +6,7 @@ from ar_analytics.helpers.utils import old_get_filters_headline, old_get_date_la
 from skill_framework import ExportData, SkillOutput
 
 from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRIC_GROUP_MAPPING, StrategicBenchmarkCustomMetrics, StrategicBenchmarkInit, StrategicBenchmarkParameters, StrategicBenchmarkRunResult
-from overproof_utilities import MenuColNames, OverproofSharedFn, calculate_market_share_denominator
+from overproof_utilities import MenuColNames, OverproofSharedFn, calculate_market_share_denominator, get_share_totals
 from overproof_visualization_utilities import render_layout
 
 # Do not remove, pulls in max_metadata on all pandas DFs
@@ -68,77 +68,6 @@ class StrategicBenchmark:
             warning_message = f"⚠ {warning_message}"
 
         return warning_message
-    
-    # Overwriting so that the share for count metrics is calculated correctly for count metrics.
-    def get_share_totals(self, 
-            numerator_df: pd.DataFrame,
-            metrics: List[dict], 
-            breakout: Optional[str] = None, 
-            query_filters: List[dict] = None
-        ):
-
-        breakout_filters = query_filters.copy()
-        market_filters = [f for f in breakout_filters if
-                          not is_filter_token(f['val']) and f['col'] not in self.dim_hierarchy.owner_cols]
-        
-        if breakout:
-
-            # check if filters are the same for numerator and denominator
-            # if it's the same then calculate contribution to total
-            if market_filters == breakout_filters:
-                groupby = []
-                subject_breakout = breakout
-            # only breakout the denominator if it is not an owner column
-            elif breakout in self.dim_hierarchy.owner_cols:
-                groupby = []
-                subject_breakout = breakout
-            else:
-                groupby = [breakout]
-                subject_filters = [f for f in breakout_filters if
-                        not is_filter_token(f['val']) and f['col'] in self.dim_hierarchy.owner_cols]
-                subject_breakout = subject_filters[0]['col'] if subject_filters else None
-
-            denominator_df = calculate_market_share_denominator(
-                pull_data_func = self.pull_data_func,
-                metrics=metrics,
-                breakouts=groupby,
-                filters=market_filters,
-                subject_breakout=subject_breakout
-            )
-
-            if groupby:
-                df = numerator_df.merge(denominator_df, on=groupby, how='left', suffixes=('', '__market'))
-            else:
-                # add __market to the cols of denominator_df
-                denominator_df = denominator_df.add_suffix('__market')
-                # Use merge with cross join to apply denominator values to all rows
-                df = numerator_df.merge(denominator_df, how='cross')
-
-        else:
-            subject_filters = [f for f in breakout_filters if
-                    not is_filter_token(f['val']) and f['col'] in self.dim_hierarchy.owner_cols]
-            subject_breakout = subject_filters[0]['col'] if subject_filters else None
-            denominator_df = calculate_market_share_denominator(
-                pull_data_func = self.pull_data_func,
-                metrics=metrics,
-                filters=market_filters,
-                subject_breakout=subject_breakout
-            )
-
-            denominator_df = denominator_df.add_suffix('__market')
-            df = pd.concat([numerator_df, denominator_df], axis=1)
-
-        for metric in metrics:
-            metric_name = metric['name']
-            df[f"{metric_name}"] = df[f"{metric_name}"].div(
-                df[f"{metric_name}__market"].replace(0, np.nan),
-                fill_value=0
-            )
-
-        # drop __market cols
-        df = df.drop(columns=[col for col in df.columns if '__market' in col])
-
-        return df
     
     def get_breakout_data(self, 
         metrics: List[dict], 
@@ -255,7 +184,9 @@ class StrategicBenchmark:
 
             keep_cols = breakouts + [MenuColNames.MENU_PLACEMENTS_METRIC.value]
 
-            menu_placement_share_df = self.get_share_totals(
+            menu_placement_share_df = get_share_totals(
+                pull_data_func=self.pull_data_func,
+                dim_hierarchy=self.dim_hierarchy,
                 numerator_df=breakout_df[keep_cols],
                 metrics=[menu_placement_metric],
                 breakout=breakout,

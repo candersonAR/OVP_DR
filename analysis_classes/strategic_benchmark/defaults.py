@@ -112,7 +112,6 @@ class StrategicBenchmarkParameters:
     peer_filters: list[dict]
     query_filters: Optional[list[dict]] = None
     period_filters: Optional[list[dict]] = None
-    compare_date_warning_msg: Optional[str] = None
     date_labels: Optional[dict] = None
     growth_type: Optional[str] = "Y/Y"
 
