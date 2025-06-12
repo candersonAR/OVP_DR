@@ -45,6 +45,11 @@ logger = logging.getLogger(__name__)
             default_value="Y/Y"
         ),
         SkillParameter(
+            name="limit_n",
+            description="limit the number of values by this number",
+            default_value=10
+        ),
+        SkillParameter(
             name="max_prompt",
             parameter_type="prompt",
             description="Prompt being used for max response.",
@@ -74,9 +79,5 @@ def group_prioritization(parameters: SkillInput):
     sb = GroupPrioritization(init=init)  
 
     sb_result = sb.run(parameters=sb_parameters)
-
-    # TODO: Confirm if this footnote is needed
-    # if df_provider.removed_nones:
-    #     sb_result.general_footnote = "Many Items are not aligned with specific product details. These values are filtered from analysis and calculations to provide a more clear answer."
 
     return sb.create_viz(run_result=sb_result)

@@ -102,7 +102,8 @@ class GroupPrioritizationTemplateParameterSetup(TemplateParameterSetup):
             "periods": DEFAULT_PERIOD if not parameters.arguments.periods else parameters.arguments.periods,
             "benchmark_brand": parameters.arguments.benchmark_brand,
             "growth_type": parameters.arguments.growth_type,
-            "other_filters": parameters.arguments.other_filters or []
+            "other_filters": parameters.arguments.other_filters or [],
+            "limit_n": parameters.arguments.limit_n
         }
 
         env = SimpleNamespace(**param_dict)
@@ -208,7 +209,8 @@ class GroupPrioritizationTemplateParameterSetup(TemplateParameterSetup):
             benchmark_brand=env.benchmark_brand,
             other_filters=updated_filters,
             growth_type=growth_type,
-            date_labels=date_labels
+            date_labels=date_labels,
+            limit_n=env.limit_n
         )
 
         gp_init = GroupPrioritizationInit(

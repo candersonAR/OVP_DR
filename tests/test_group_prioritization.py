@@ -53,6 +53,15 @@ class TestGroupPrioritization:
             'other_filters': [self.filter__brand_name__bacardi]
         })
 
+    def test_group_prioritization_limit_n(self):
+        
+        self._assert_group_prioritization_runs_without_errors(parameters={
+            'periods': [self.period__ytd],
+            "benchmark_brand": "captain morgan",
+            'other_filters': [self.filter__brand_name__bacardi],
+            'limit_n': 5
+        })
+
     def test_no_period_provided(self):
         
         self._assert_group_prioritization_runs_without_errors(parameters={

@@ -102,6 +102,7 @@ class GroupPrioritizationParameters:
     other_filters: Optional[list[dict]] = None
     growth_type: Optional[str] = "Y/Y"  # Added with default
     date_labels: Optional[dict] = None  # Added
+    limit_n: Optional[int] = 10
 
 @dataclass
 class GroupPrioritizationRunResult:

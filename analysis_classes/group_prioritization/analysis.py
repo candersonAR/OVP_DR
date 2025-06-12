@@ -220,8 +220,6 @@ class GroupPrioritization:
             axis=1
         )
         
-        cleaned_comparison_df = cleaned_comparison_df.sort_values('cocktail_menu_placements', ascending=False)
-        
         return cleaned_comparison_df
 
     def format_table(self, df: pd.DataFrame, parameters: GroupPrioritizationParameters) -> pd.DataFrame:
@@ -306,7 +304,8 @@ class GroupPrioritization:
         """Main execution method"""
         
         raw_comparison_df = self.build_comparison_table(parameters)
-        comparison_df = self.format_table(raw_comparison_df, parameters)
+        comparison_df = raw_comparison_df.nlargest(parameters.limit_n, 'brand_menu_placements')
+        comparison_df = self.format_table(comparison_df, parameters)
 
         facts_df = self.get_facts_df(raw_comparison_df)
         
