@@ -69,10 +69,8 @@ class GroupPrioritization:
             return np.nan
         
         if is_share:
-            # For shares, return difference
             return (current - previous)
         else:
-            # For other metrics, return percentage growth
             return (current - previous) / abs(previous)
 
     def determine_strategic_role(self, brand_share: float, benchmark_share: float, 
@@ -101,7 +99,6 @@ class GroupPrioritization:
     def get_period_data(self, metrics: List[dict], period_filter: dict, other_filters: List[dict]) -> pd.DataFrame:
         """Pull all necessary data in one query with cocktail and brand as breakouts"""
         
-        # Pull data with both cocktail and brand as breakouts
         df = self.pull_data_func(
             metrics=metrics,
             breakouts=[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value, MenuColNames.BRAND_NAME_COL.value],
@@ -157,17 +154,13 @@ class GroupPrioritization:
         
         # cocktail_menu_placements_df = self.get_cocktail_menu_placements(current_period)
         
-        # Get current period data
         current_data = self.get_period_data(parameters.metrics, current_period, [])
         brand_df_current, benchmark_df_current = self.process_period_data(current_data, brand_name, benchmark_name)
         
-        # If comparison period exists, calculate growth
         if comparison_period:
-            # Get comparison period data - no need to fetch again, use process_period_data
             comparison_data = self.get_period_data(parameters.metrics, comparison_period, [])
             brand_df_comparison, benchmark_df_comparison = self.process_period_data(comparison_data, brand_name, benchmark_name)
 
-            # Rename comparison columns
             brand_df_comparison = brand_df_comparison.rename(columns={
                 'brand_share': 'brand_share_prev',
                 'cocktail_menu_placements': 'cocktail_menu_placements_prev',
@@ -180,7 +173,6 @@ class GroupPrioritization:
                 'menu_placements': 'menu_placements_prev'
             })
             
-            # Merge current and comparison data
             cocktail_col = MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value
             brand_df = brand_df_current.merge(
                 brand_df_comparison, 
@@ -228,7 +220,6 @@ class GroupPrioritization:
             axis=1
         )
         
-        # # Sort by cocktail menu placements (descending)
         cleaned_comparison_df = cleaned_comparison_df.sort_values('cocktail_menu_placements', ascending=False)
         
         return cleaned_comparison_df
@@ -237,7 +228,6 @@ class GroupPrioritization:
         """Format the table with appropriate number formats"""
         
         formatted_df = pd.DataFrame()
-        # Format menu placements as integers
         formatted_df['Cocktail'] = df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value]
         formatted_df['Cocktail Menu Placements'] = df['cocktail_menu_placements'].apply(
             lambda x: self.helper.get_formatted_num(x, ',.0f')
@@ -273,7 +263,6 @@ class GroupPrioritization:
         
         facts = []
         
-        # Top performing cocktails for brand (use unformatted data for sorting)
         top_brand_indices = df_unformatted.nlargest(3, "brand_share").index
         top_brand_cocktails = df.loc[top_brand_indices][['Cocktail', "Brand's Menu Share", 'Strategic Role']]
         
@@ -295,18 +284,7 @@ class GroupPrioritization:
         period = parameters.period
         
         title = f"Group Prioritization: {brand_name} vs. {benchmark_name}"
-        
-        # Add filters to title if present
-        query_filters_title = old_get_filters_headline(
-            parameters.other_filters,
-            headline_seperator=", ",
-            metric_props=self.metric_props,
-            dim_props=self.dim_props
-        )
-        
-        if query_filters_title:
-            title = f"{title} • {period}"
-        
+               
         subtitle = old_get_date_label_str(parameters.date_labels, prefix="")
         if parameters.growth_type:
             subtitle = f"{subtitle} • {parameters.growth_type} Growth"
@@ -316,26 +294,20 @@ class GroupPrioritization:
     def run(self, parameters: GroupPrioritizationParameters) -> GroupPrioritizationRunResult:
         """Main execution method"""
         
-        # Build comparison table (returns formatted and unformatted versions)
         raw_comparison_df = self.build_comparison_table(parameters)
         comparison_df = self.format_table(raw_comparison_df, parameters)
 
-        # Get facts for insights (using both formatted and unformatted data)
         facts_df = self.get_facts_df(comparison_df, raw_comparison_df)
         
-        # Get title and subtitle
         title, subtitle = self.get_title_and_subtitle(parameters)
         
-        # Get warnings
         warnings = self.get_warning_messages()
         
-        # Add notes about the analysis
         self.notes.append(f"Analysis compares {parameters.brand_name} performance against {parameters.benchmark_brand} across cocktails.")
         self.notes.append("Menu placements calculated as count of distinct products per cocktail.")
         if len(parameters.period_filters) > 1:
             self.notes.append(f"Growth calculated as {parameters.growth_type} change in menu share (basis points).")
         
-        # Create result
         result = GroupPrioritizationRunResult(
             table_df=comparison_df,
             fact_dfs=[facts_df, pd.DataFrame({'Note to the assistant:': self.notes})],
