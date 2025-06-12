@@ -9,7 +9,9 @@ from analysis_classes.group_prioritization.defaults import (
     GroupPrioritizationInit, 
     GroupPrioritizationParameters, 
     GroupPrioritizationRunResult,
-    STRATEGIC_ROLES
+    STRATEGIC_ROLES,
+    GroupPrioritizationMetrics,
+    METRIC_INFO
 )
 from overproof_utilities import MenuColNames, OverproofSharedFn
 from overproof_visualization_utilities import render_layout
@@ -126,18 +128,18 @@ class GroupPrioritization:
         brand_df = df[df[brand_col].str.lower() == brand_name.lower()]
         benchmark_df = df[df[brand_col].str.lower() == benchmark_name.lower()]
 
-        cocktail_total_df = df.groupby(cocktail_col)['menu_placements'].sum().reset_index(name='cocktail_menu_placements')
+        cocktail_total_df = df.groupby(cocktail_col)['menu_placements'].sum().reset_index(name=GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value)
         
         # Calculate shares
         brand_df = brand_df.merge(cocktail_total_df, on=cocktail_col, how='left')
-        brand_df['brand_share'] = brand_df.apply(
-            lambda row: self.calculate_share(row['menu_placements'], row['cocktail_menu_placements']), 
+        brand_df[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value] = brand_df.apply(
+            lambda row: self.calculate_share(row['menu_placements'], row[GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value]), 
             axis=1
         )
 
         benchmark_df = benchmark_df.merge(cocktail_total_df, on=cocktail_col, how='left')
-        benchmark_df['benchmark_share'] = benchmark_df.apply(
-            lambda row: self.calculate_share(row['menu_placements'], row['cocktail_menu_placements']), 
+        benchmark_df[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value] = benchmark_df.apply(
+            lambda row: self.calculate_share(row['menu_placements'], row[GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value]), 
             axis=1
         )
         
@@ -162,15 +164,15 @@ class GroupPrioritization:
             brand_df_comparison, benchmark_df_comparison = self.process_period_data(comparison_data, brand_name, benchmark_name)
 
             brand_df_comparison = brand_df_comparison.rename(columns={
-                'brand_share': 'brand_share_prev',
-                'cocktail_menu_placements': 'cocktail_menu_placements_prev',
-                'menu_placements': 'menu_placements_prev'
+                GroupPrioritizationMetrics.BRAND_MENU_SHARE.value: GroupPrioritizationMetrics.BRAND_MENU_SHARE.value + '_prev',
+                GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value: GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value + '_prev',
+                "menu_placements": 'menu_placements_prev'
             })
             
             benchmark_df_comparison = benchmark_df_comparison.rename(columns={
-                'benchmark_share': 'benchmark_share_prev',
-                'cocktail_menu_placements': 'cocktail_menu_placements_prev',
-                'menu_placements': 'menu_placements_prev'
+                GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value: GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value + '_prev',
+                GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value: GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value + '_prev',
+                "menu_placements": 'menu_placements_prev'
             })
             
             cocktail_col = MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value
@@ -190,69 +192,66 @@ class GroupPrioritization:
             })
             
             # Calculate growth (in basis points for shares)
-            brand_df['brand_growth_pp'] = (brand_df['brand_share'] - brand_df['brand_share_prev'])
-            brand_df.drop(columns=['brand_share_prev', 'cocktail_menu_placements_prev', 'menu_placements_prev'], inplace=True)
+            brand_df[GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value] = (brand_df[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value] - brand_df[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value + '_prev'])
+            brand_cols_to_drop = [
+                                    GroupPrioritizationMetrics.BRAND_MENU_SHARE.value + '_prev', 
+                                    GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value + '_prev', 
+                                    'menu_placements_prev',
+            ]
+            brand_df.drop(columns=brand_cols_to_drop, inplace=True)
             brand_df.rename(columns={
-                'menu_placements': 'brand_menu_placements',
+                'menu_placements': GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value,
             }, inplace=True)
 
-            benchmark_df['benchmark_growth_pp'] = (benchmark_df['benchmark_share'] - benchmark_df['benchmark_share_prev'])
-            benchmark_df.drop(columns=['benchmark_share_prev', 'cocktail_menu_placements_prev', 'menu_placements_prev','cocktail_menu_placements'], inplace=True)
+
+            benchmark_df[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value] = (benchmark_df[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value] - benchmark_df[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value + '_prev'])
+            benchmark_cols_to_drop = [
+                                        GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value + '_prev', 
+                                        GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value + '_prev', 
+                                        GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value,
+                                        'menu_placements_prev'
+            ]
+            benchmark_df.drop(columns=benchmark_cols_to_drop, inplace=True)
             benchmark_df.rename(columns={
-                'menu_placements': 'benchmark_menu_placements',
+                'menu_placements': GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value,
             }, inplace=True)
         else:
             brand_df = brand_df_current
             benchmark_df = benchmark_df_current
         
         raw_comparison_df = brand_df.merge(benchmark_df, on=[cocktail_col], how='left')
-        raw_comparison_df = raw_comparison_df[raw_comparison_df['ingredient_of_cocktail_name'] != "None"]
+        raw_comparison_df = raw_comparison_df[raw_comparison_df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value] != "None"]
         cleaned_comparison_df = raw_comparison_df.dropna()
 
         # Determine strategic role
-        cleaned_comparison_df['strategic_role'] = cleaned_comparison_df.apply(
+        cleaned_comparison_df[GroupPrioritizationMetrics.STRATEGIC_ROLE.value] = cleaned_comparison_df.apply(
             lambda row: self.determine_strategic_role(
-                row['brand_share'], 
-                row['benchmark_share'],
-                row['brand_growth_pp'], 
-                row['benchmark_growth_pp']
+                row[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value], 
+                row[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value],
+                row[GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value], 
+                row[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value]
             ), 
             axis=1
         )
         
         return cleaned_comparison_df
 
-    def format_table(self, df: pd.DataFrame, parameters: GroupPrioritizationParameters) -> pd.DataFrame:
+    def format_table(self, df: pd.DataFrame) -> pd.DataFrame:
         """Format the table with appropriate number formats"""
-        
+        metric_props = self.metric_props.copy()
+        metric_props.update(METRIC_INFO)
+
         formatted_df = pd.DataFrame()
-        formatted_df['Cocktail'] = df[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value]
-        formatted_df['Cocktail Menu Placements'] = df['cocktail_menu_placements'].apply(
-            lambda x: self.helper.get_formatted_num(x, ',.0f')
-        )
-
-        formatted_df['Brand Menu Placements'] = df['brand_menu_placements'].apply(
-            lambda x: self.helper.get_formatted_num(x, ',.0f')
-        )
-        formatted_df["Brand's Menu Share"] = df["brand_share"].apply(
-            lambda x: self.helper.get_formatted_num(x, '.4%')
-        )
-        formatted_df["Brand's Menu Share Growth"] = df["brand_growth_pp"].apply(
-            lambda x: self.helper.get_formatted_num(x, '.4pp')  # 4 decimal places for percentage points
-        )
-
-
-        formatted_df['Benchmark Brand Menu Placements'] = df['benchmark_menu_placements'].apply(
-            lambda x: self.helper.get_formatted_num(x, ',.0f')
-        )
-        formatted_df["Benchmark Brand's Menu Share"] = df["benchmark_share"].apply(
-            lambda x: self.helper.get_formatted_num(x, '.4%')
-        )
-        formatted_df["Benchmark Brand's Menu Share Growth"] = df["benchmark_growth_pp"].apply(
-             lambda x: self.helper.get_formatted_num(x, '.4pp')  # 4 decimal places for percentage points
-        )
-        
-        formatted_df["Strategic Role"] = df["strategic_role"]
+        for metric in df.columns:
+            metric_prop = self.helper.get_metric_prop(metric, metric_props)
+            if "is_growth" in metric_prop and metric_prop['is_growth']:
+                formatted_df[metric_prop['label']] = df[metric].apply(
+                    lambda x: self.helper.get_formatted_num(x, metric_prop['growth_fmt'])
+                )
+            else:
+                formatted_df[metric_prop['label']] = df[metric].apply(
+                    lambda x: self.helper.get_formatted_num(x, metric_prop['fmt'])
+                )
         
         return formatted_df
 
@@ -263,9 +262,9 @@ class GroupPrioritization:
         
         # Group by Strategic Role and get top 3 cocktails for each role
         top_cocktails_by_role = []
-        for role in df_unformatted['strategic_role'].unique():
-            role_df = df_unformatted[df_unformatted['strategic_role'] == role]
-            top_role_cocktails = role_df.nlargest(3, 'brand_menu_placements')
+        for role in df_unformatted[GroupPrioritizationMetrics.STRATEGIC_ROLE.value].unique():
+            role_df = df_unformatted[df_unformatted[GroupPrioritizationMetrics.STRATEGIC_ROLE.value] == role]
+            top_role_cocktails = role_df.nlargest(3, GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value)
             top_cocktails_by_role.append(top_role_cocktails)    
         
         # Concatenate all top cocktails
@@ -274,13 +273,13 @@ class GroupPrioritization:
         # Create facts for each top cocktail
         for _, row in top_brand_cocktails.iterrows():
             facts.append({
-                'Fact Type': f'Top {row["strategic_role"]} Cocktail',
-                'Cocktail': row['ingredient_of_cocktail_name'],
-                'Brand Share': row["brand_share"],
-                'Brand Menu Placements': row["brand_menu_placements"],
-                'Benchmark Brand Share': row["benchmark_share"],
-                'Benchmark Brand Menu Placements': row["benchmark_menu_placements"],
-                'Strategic Role': row['strategic_role']
+                'Fact Type': f'Top {row[GroupPrioritizationMetrics.STRATEGIC_ROLE.value]} Cocktail',
+                'Cocktail': row[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value],
+                'Brand Share': row[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value],
+                'Brand Menu Placements': row[GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value],
+                'Benchmark Brand Share': row[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value],
+                'Benchmark Brand Menu Placements': row[GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value],
+                'Strategic Role': row[GroupPrioritizationMetrics.STRATEGIC_ROLE.value]
             })
         
         return pd.DataFrame(facts)
@@ -304,8 +303,8 @@ class GroupPrioritization:
         """Main execution method"""
         
         raw_comparison_df = self.build_comparison_table(parameters)
-        comparison_df = raw_comparison_df.nlargest(parameters.limit_n, 'brand_menu_placements')
-        comparison_df = self.format_table(comparison_df, parameters)
+        comparison_df = raw_comparison_df.nlargest(parameters.limit_n, GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value)
+        comparison_df = self.format_table(comparison_df)
 
         facts_df = self.get_facts_df(raw_comparison_df)
         
@@ -356,5 +355,5 @@ class GroupPrioritization:
             visualizations=viz,
             parameter_display_descriptions=self.pills,
             followup_questions=run_result.followups,
-            export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
+            export_data=[ExportData(name=name, id=df.max_metadata.get_id(), data=df) for name, df in export_data.items()]
         )

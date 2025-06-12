@@ -42,27 +42,17 @@ Facts:
 Summary:"""
 )
 
-class MetricGroup(Enum):
-    MENU_PLACEMENTS = "Cocktail Menu Placements"
 
+class GroupPrioritizationMetrics(Enum):
+    COCKTAIL_MENU_PLACEMENTS = "cocktail_menu_placements"
+    BRAND_MENU_PLACEMENTS = "brand_menu_placements"
+    BRAND_MENU_SHARE = "brand_share"
+    BRAND_MENU_SHARE_GROWTH = "brand_share_growth"
+    BENCHMARK_MENU_PLACEMENTS = "benchmark_menu_placements"
+    BENCHMARK_MENU_SHARE = "benchmark_share"
+    BENCHMARK_MENU_SHARE_GROWTH = "benchmark_share_growth"
+    STRATEGIC_ROLE = "strategic_role"
 
-DEFAULT_DIMENSIONS = [
-    MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value,
-]
-
-DEFAULT_METRICS = [
-  MenuColNames.MENU_PLACEMENTS_METRIC.value,
-  MenuColNames.BRAND_NAME_COL.value,
-]
-
-DEFAULT_METRIC_GROUP_MAPPING = {
-    MenuColNames.MENU_PLACEMENTS_METRIC.value: MetricGroup.MENU_PLACEMENTS.value,
-}
-
-DEFAULT_PERIOD = ["ytd"]
-
-
-# TODO: Figure out what metric these roles are based on and what actual cutoffs are
 class STRATEGIC_ROLES(Enum):
     DEFEND_AND_LEAD = "Defend & Lead"
     AT_RISK = "At Risk"
@@ -70,13 +60,130 @@ class STRATEGIC_ROLES(Enum):
     FIX_AND_EXPAND = "Fix & Expand"
     MONITOR_OR_DEPRIORITIZE = "Monitor or Deprioritize"
 
-# STRATEGIC_ROLES = {
-#     "Defend & Lead" : 0.7,
-#     "At Risk" : 0.5,    
-#     "Accelerate Growth" : 0.3,
-#     "Fix & Expand" : 0.1,
-#     "Monitor or Deprioritize" : 0.0
-# }
+METRICS_MAPPING = {
+    GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value: "Cocktail Menu Placements",
+    GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value: "Brand Menu Placements",
+    GroupPrioritizationMetrics.BRAND_MENU_SHARE.value: "Brand Menu Share",
+    GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value: "Brand Menu Share Growth",
+    GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value: "Benchmark Menu Placements",
+    GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value: "Benchmark Menu Share",
+    GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value: "Benchmark Menu Share Growth",
+    GroupPrioritizationMetrics.STRATEGIC_ROLE.value: "Strategic Role",
+}
+
+METRIC_INFO = {
+    GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value: {
+        "name": GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value,
+        "label": METRICS_MAPPING[GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value],
+        "sql": None,
+        "col": None,
+        "metric_type": None,
+        "is_share": None,
+        "is_growth": False,
+        "growth_fmt": ",.2%",
+        "fmt": ",.0f",
+        "hide_percentage_change": False,
+    },
+    GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value: {
+        "name": GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value,
+        "label": METRICS_MAPPING[GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value],
+        "sql": None,
+        "col": None,
+        "metric_type": None,
+        "is_share": None,
+        "is_growth": False,
+        "growth_fmt": ",.2%",
+        "fmt": ",.0f",
+        "hide_percentage_change": False,
+    },
+    GroupPrioritizationMetrics.BRAND_MENU_SHARE.value: {
+        "name": GroupPrioritizationMetrics.BRAND_MENU_SHARE.value,
+        "label": METRICS_MAPPING[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value],
+        "component_metric": GroupPrioritizationMetrics.BRAND_MENU_SHARE.value,
+        "sql": None,
+        "col": None,
+        "metric_type": "share",
+        "is_share": True,
+        "is_growth": False,
+        "fmt": ",.2%",
+        "growth_fmt": "bps",
+        "hide_percentage_change": True,
+    },
+    GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value: {
+        "name": GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value,
+        "label": METRICS_MAPPING[GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value],
+        "component_metric": GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value,
+        "sql": None,
+        "col": None,
+        "metric_type": "share",
+        "is_share": True,
+        "is_growth": True,
+        "fmt": ",.2%",
+        "growth_fmt": ",.2pp",
+        "hide_percentage_change": True,
+    },
+    GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value: {
+        "name": GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value,
+        "label": METRICS_MAPPING[GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value],
+        "sql": None,
+        "col": None,
+        "metric_type": None,
+        "is_share": None,
+        "is_growth": False,
+        "growth_fmt": ",.2%",
+        "fmt": ",.0f",
+        "hide_percentage_change": False,
+    },
+    GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value: {
+        "name": GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value,
+        "label": METRICS_MAPPING[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value],
+        "component_metric": GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value,
+        "sql": None,
+        "col": None,
+        "metric_type": "share",
+        "is_share": True,
+        "is_growth": False,
+        "fmt": ",.2%",
+        "growth_fmt": "bps",
+        "hide_percentage_change": True,
+    },
+    GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value: {
+        "name": GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value,
+        "label": METRICS_MAPPING[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value],
+        "component_metric": GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value,
+        "sql": None,
+        "col": None,
+        "metric_type": "share",
+        "is_share": True,
+        "is_growth": True,
+        "fmt": ",.2%",
+        "growth_fmt": ",.2pp",
+        "hide_percentage_change": True,
+    },
+    GroupPrioritizationMetrics.STRATEGIC_ROLE.value: {
+        "name": GroupPrioritizationMetrics.STRATEGIC_ROLE.value,
+        "label": METRICS_MAPPING[GroupPrioritizationMetrics.STRATEGIC_ROLE.value],
+        "sql": None,
+        "col": None,
+        "metric_type": None,
+        "is_share": None,
+        "is_growth": False,
+        "fmt": ",.2f",
+        "growth_fmt": ",.2f",
+        "hide_percentage_change": False,
+    },
+}
+
+DEFAULT_DIMENSIONS = [
+    MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value,
+]
+
+DEFAULT_METRICS = [
+    MenuColNames.MENU_PLACEMENTS_METRIC.value,
+    MenuColNames.BRAND_NAME_COL.value,
+]
+
+DEFAULT_PERIOD = ["ytd"]    
 
 @dataclass
 class GroupPrioritizationInit:
