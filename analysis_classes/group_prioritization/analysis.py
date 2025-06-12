@@ -258,20 +258,31 @@ class GroupPrioritization:
         
         return formatted_df
 
-    def get_facts_df(self, df: pd.DataFrame, df_unformatted: pd.DataFrame) -> pd.DataFrame:
+    def get_facts_df(self, df_unformatted: pd.DataFrame) -> pd.DataFrame:
         """Create facts dataframe for insights using unformatted data"""
         
         facts = []
         
-        top_brand_indices = df_unformatted.nlargest(3, "brand_share").index
-        top_brand_cocktails = df.loc[top_brand_indices][['Cocktail', "Brand's Menu Share", 'Strategic Role']]
+        # Group by Strategic Role and get top 3 cocktails for each role
+        top_cocktails_by_role = []
+        for role in df_unformatted['strategic_role'].unique():
+            role_df = df_unformatted[df_unformatted['strategic_role'] == role]
+            top_role_cocktails = role_df.nlargest(3, 'brand_menu_placements')
+            top_cocktails_by_role.append(top_role_cocktails)    
         
+        # Concatenate all top cocktails
+        top_brand_cocktails = pd.concat(top_cocktails_by_role)
+        
+        # Create facts for each top cocktail
         for _, row in top_brand_cocktails.iterrows():
             facts.append({
-                'Fact Type': 'Top Brand Cocktail',
-                'Cocktail': row['Cocktail'],
-                'Share': row["Brand's Menu Share"],
-                'Strategic Role': row['Strategic Role']
+                'Fact Type': f'Top {row["strategic_role"]} Cocktail',
+                'Cocktail': row['ingredient_of_cocktail_name'],
+                'Brand Share': row["brand_share"],
+                'Brand Menu Placements': row["brand_menu_placements"],
+                'Benchmark Brand Share': row["benchmark_share"],
+                'Benchmark Brand Menu Placements': row["benchmark_menu_placements"],
+                'Strategic Role': row['strategic_role']
             })
         
         return pd.DataFrame(facts)
@@ -297,7 +308,7 @@ class GroupPrioritization:
         raw_comparison_df = self.build_comparison_table(parameters)
         comparison_df = self.format_table(raw_comparison_df, parameters)
 
-        facts_df = self.get_facts_df(comparison_df, raw_comparison_df)
+        facts_df = self.get_facts_df(raw_comparison_df)
         
         title, subtitle = self.get_title_and_subtitle(parameters)
         
