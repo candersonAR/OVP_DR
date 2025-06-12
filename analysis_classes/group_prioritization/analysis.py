@@ -13,7 +13,8 @@ from analysis_classes.group_prioritization.defaults import (
     GroupPrioritizationMetrics,
     METRIC_INFO,
     SIMILAR_SHARE_CUTOFF,
-    STAGNANT_GROWTH_THRESHOLD
+    STAGNANT_GROWTH_THRESHOLD,
+    COLUMN_ORDER
 )
 from overproof_utilities import MenuColNames, OverproofSharedFn
 from overproof_visualization_utilities import render_layout
@@ -363,7 +364,8 @@ class GroupPrioritization:
         raw_comparison_df = self.build_comparison_table(parameters)
         comparison_df = raw_comparison_df.nlargest(parameters.limit_n, GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value)
         comparison_df = self.format_table(comparison_df)
-
+        comparison_df = comparison_df[COLUMN_ORDER]
+        
         facts_df = self.get_facts_df(raw_comparison_df)
         
         title, subtitle = self.get_title_and_subtitle(parameters)

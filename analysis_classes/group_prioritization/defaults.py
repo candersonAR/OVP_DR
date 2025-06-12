@@ -9,8 +9,8 @@ from skill_framework import ParameterDisplayDescription, SuggestedQuestion
 from overproof_utilities import MenuColNames
 
 group_prioritization_config = SkillConfig(
-    name="Group Prioritization",
-    llm_name="group_prioritization",
+    name="Cocktail Group Prioritization",
+    llm_name="cocktail_group_prioritization",
     description="""""",
     capabilities="""""",
     limitations="""Can only analyze one brand and one benchmark brand at a time.
@@ -70,9 +70,34 @@ METRICS_MAPPING = {
     GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value: "Benchmark Menu Share",
     GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value: "Benchmark Menu Share Growth",
     GroupPrioritizationMetrics.STRATEGIC_ROLE.value: "Strategic Role",
+    MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value: "Cocktail",
 }
 
+COLUMN_ORDER = [
+    METRICS_MAPPING[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value],
+    METRICS_MAPPING[GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value],
+    METRICS_MAPPING[GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value],
+    METRICS_MAPPING[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value],
+    METRICS_MAPPING[GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value],
+    METRICS_MAPPING[GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value],
+    METRICS_MAPPING[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value],
+    METRICS_MAPPING[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value],
+    METRICS_MAPPING[GroupPrioritizationMetrics.STRATEGIC_ROLE.value],
+]
+
 METRIC_INFO = {
+    MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value: {
+        "name": MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value,
+        "label": METRICS_MAPPING[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value],
+        "sql": None,
+        "col": None,
+        "metric_type": None,
+        "is_share": None,
+        "is_growth": False,
+        "growth_fmt": ",.2%",
+        "fmt": ",.0f",
+        "hide_percentage_change": False,
+    },
     GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value: {
         "name": GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value,
         "label": METRICS_MAPPING[GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value],
