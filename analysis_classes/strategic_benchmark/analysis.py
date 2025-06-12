@@ -527,5 +527,5 @@ class StrategicBenchmark:
             visualizations=viz,
             parameter_display_descriptions=self.pills,
             followup_questions=run_result.followups,
-            export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
+            export_data=[ExportData(name=name, id=df.max_metadata.get_id(), data=df) for name, df in export_data.items()]
         )
