@@ -11,7 +11,9 @@ from analysis_classes.group_prioritization.defaults import (
     GroupPrioritizationRunResult,
     STRATEGIC_ROLES,
     GroupPrioritizationMetrics,
-    METRIC_INFO
+    METRIC_INFO,
+    SIMILAR_SHARE_CUTOFF,
+    STAGNANT_GROWTH_THRESHOLD
 )
 from overproof_utilities import MenuColNames, OverproofSharedFn
 from overproof_visualization_utilities import render_layout
@@ -75,28 +77,51 @@ class GroupPrioritization:
         else:
             return (current - previous) / abs(previous)
 
-    def determine_strategic_role(self, brand_share: float, benchmark_share: float, 
-                               brand_growth: float, benchmark_growth: float) -> str:
+    def determine_strategic_role(self, brand_menu_placements: float, brand_share: float,  brand_growth: float, 
+                                benchmark_menu_placements: float, benchmark_share: float, benchmark_growth: float,
+                               avg_placements_per_brand: float, avg_market_share: float) -> str:
         """Determine strategic role based on share and growth comparison"""
         
-        # If brand leads or matches benchmark with strong/stable performance
-        if brand_share >= benchmark_share * 0.9:  # Within 10% of benchmark
-            if brand_growth >= 0 or pd.isna(brand_growth):
-                return STRATEGIC_ROLES.DEFEND_AND_LEAD.value
+        # If brand is above average placements (Leading)
+        if brand_menu_placements > avg_placements_per_brand:
+            # If brand is similar to benchmark share
+            if brand_share < benchmark_share + SIMILAR_SHARE_CUTOFF and brand_share > benchmark_share - SIMILAR_SHARE_CUTOFF:
+                return STRATEGIC_ROLES.INVEST_TO_GROW.value                
+                
+            # If brand is above benchmark share
+            elif brand_share >= benchmark_share:
+                # If brand is stagnant
+                if brand_growth >= -STAGNANT_GROWTH_THRESHOLD and brand_growth <= STAGNANT_GROWTH_THRESHOLD:
+                    return STRATEGIC_ROLES.DEFEND_AND_LEAD.value
+                
+                # If brand is growing
+                elif brand_growth >= STAGNANT_GROWTH_THRESHOLD:
+                    return STRATEGIC_ROLES.PROTECT_POSITIONING.value
+                
+                # If brand is declining
+                else:
+                    return STRATEGIC_ROLES.DEFEND_AND_LEAD.value
+            
+            # If brand is below benchmark share (Lagging)
             else:
-                return STRATEGIC_ROLES.AT_RISK.value
-        
-        # If brand is below benchmark but growing fast
-        elif brand_share < benchmark_share and brand_growth > benchmark_growth:
-            return STRATEGIC_ROLES.ACCELERATE_GROWTH.value
-        
-        # If brand underperforms in a valuable cocktail
-        elif brand_share < benchmark_share * 0.5:  # Less than 50% of benchmark share
-            return STRATEGIC_ROLES.FIX_AND_EXPAND.value
-        
-        # Default case - low relevance or declining category
+                # If brand is stagnant or declining
+                if brand_growth <= STAGNANT_GROWTH_THRESHOLD:
+                    return STRATEGIC_ROLES.OPTIMIZE_OR_REPOSITION.value
+                
+                # If brand is growing
+                else:
+                    return STRATEGIC_ROLES.INVEST_TO_GROW.value
+                
+                
+        # If brand is below average placements (Lagging)
         else:
-            return STRATEGIC_ROLES.MONITOR_OR_DEPRIORITIZE.value
+            # If brand is growing
+            if brand_growth >= STAGNANT_GROWTH_THRESHOLD:
+                return STRATEGIC_ROLES.MONITOR_AND_NURTURE.value
+            
+            # If brand is stagnant or declining
+            else:
+                return STRATEGIC_ROLES.DEPRIORITIZE.value
 
     def get_period_data(self, metrics: List[dict], period_filter: dict, other_filters: List[dict]) -> pd.DataFrame:
         """Pull all necessary data in one query with cocktail and brand as breakouts"""
@@ -128,16 +153,21 @@ class GroupPrioritization:
         brand_df = df[df[brand_col].str.lower() == brand_name.lower()]
         benchmark_df = df[df[brand_col].str.lower() == benchmark_name.lower()]
 
-        cocktail_total_df = df.groupby(cocktail_col)['menu_placements'].sum().reset_index(name=GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value)
-        
+        grouped_by_cocktail = df.groupby(cocktail_col)
+        brands_per_cocktail = grouped_by_cocktail[MenuColNames.BRAND_NAME_COL.value].nunique().reset_index(name="total_brands")
+        cocktail_totals_df = grouped_by_cocktail['menu_placements'].sum().reset_index(name=GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value)
+        cocktail_totals_df = cocktail_totals_df.merge(brands_per_cocktail, on=cocktail_col, how='left')
+        cocktail_totals_df['avg_placements_per_brand'] = cocktail_totals_df[GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value] / cocktail_totals_df['total_brands']
+        cocktail_totals_df['avg_market_share'] = 1 / cocktail_totals_df['total_brands']
+
         # Calculate shares
-        brand_df = brand_df.merge(cocktail_total_df, on=cocktail_col, how='left')
+        brand_df = brand_df.merge(cocktail_totals_df, on=cocktail_col, how='left')
         brand_df[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value] = brand_df.apply(
             lambda row: self.calculate_share(row['menu_placements'], row[GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value]), 
             axis=1
         )
 
-        benchmark_df = benchmark_df.merge(cocktail_total_df, on=cocktail_col, how='left')
+        benchmark_df = benchmark_df.merge(cocktail_totals_df, on=cocktail_col, how='left')
         benchmark_df[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value] = benchmark_df.apply(
             lambda row: self.calculate_share(row['menu_placements'], row[GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value]), 
             axis=1
@@ -166,13 +196,17 @@ class GroupPrioritization:
             brand_df_comparison = brand_df_comparison.rename(columns={
                 GroupPrioritizationMetrics.BRAND_MENU_SHARE.value: GroupPrioritizationMetrics.BRAND_MENU_SHARE.value + '_prev',
                 GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value: GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value + '_prev',
-                "menu_placements": 'menu_placements_prev'
+                "menu_placements": 'menu_placements_prev',
+                "avg_placements_per_brand": 'avg_placements_per_brand_prev',
+                "avg_market_share": 'avg_market_share_prev'
             })
             
             benchmark_df_comparison = benchmark_df_comparison.rename(columns={
                 GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value: GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value + '_prev',
                 GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value: GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value + '_prev',
-                "menu_placements": 'menu_placements_prev'
+                "menu_placements": 'menu_placements_prev', 
+                "avg_placements_per_brand": 'avg_placements_per_brand_prev',
+                "avg_market_share": 'avg_market_share_prev'
             })
             
             cocktail_col = MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value
@@ -197,6 +231,8 @@ class GroupPrioritization:
                                     GroupPrioritizationMetrics.BRAND_MENU_SHARE.value + '_prev', 
                                     GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value + '_prev', 
                                     'menu_placements_prev',
+                                    'avg_placements_per_brand_prev',
+                                    'avg_market_share_prev'
             ]
             brand_df.drop(columns=brand_cols_to_drop, inplace=True)
             brand_df.rename(columns={
@@ -207,9 +243,13 @@ class GroupPrioritization:
             benchmark_df[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value] = (benchmark_df[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value] - benchmark_df[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value + '_prev'])
             benchmark_cols_to_drop = [
                                         GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value + '_prev', 
-                                        GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value + '_prev', 
+                                        GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value + '_prev',
                                         GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value,
-                                        'menu_placements_prev'
+                                        'menu_placements_prev',
+                                        'avg_placements_per_brand',
+                                        'avg_placements_per_brand_prev',
+                                        'avg_market_share',
+                                        'avg_market_share_prev'
             ]
             benchmark_df.drop(columns=benchmark_cols_to_drop, inplace=True)
             benchmark_df.rename(columns={
@@ -226,13 +266,29 @@ class GroupPrioritization:
         # Determine strategic role
         cleaned_comparison_df[GroupPrioritizationMetrics.STRATEGIC_ROLE.value] = cleaned_comparison_df.apply(
             lambda row: self.determine_strategic_role(
+                row[GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value],
                 row[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value], 
-                row[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value],
                 row[GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value], 
-                row[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value]
+                row[GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value],
+                row[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value],
+                row[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value],
+                row['avg_placements_per_brand'],
+                row['avg_market_share']
             ), 
             axis=1
         )
+
+        cols_to_drop = [
+            'total_brands_x_x',
+            'total_brands_x_y',
+            'total_brands_y_x',
+            'total_brands_y_y',
+            'avg_placements_per_brand',
+            'avg_market_share',
+            'brand_name',
+            'benchmark_brand_name'
+        ]
+        cleaned_comparison_df.drop(columns=cols_to_drop, inplace=True)
         
         return cleaned_comparison_df
 
@@ -240,6 +296,7 @@ class GroupPrioritization:
         """Format the table with appropriate number formats"""
         metric_props = self.metric_props.copy()
         metric_props.update(METRIC_INFO)
+
 
         formatted_df = pd.DataFrame()
         for metric in df.columns:
@@ -277,8 +334,10 @@ class GroupPrioritization:
                 'Cocktail': row[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value],
                 'Brand Share': row[GroupPrioritizationMetrics.BRAND_MENU_SHARE.value],
                 'Brand Menu Placements': row[GroupPrioritizationMetrics.BRAND_MENU_PLACEMENTS.value],
+                'Brand Menu Share Growth': row[GroupPrioritizationMetrics.BRAND_MENU_SHARE_GROWTH.value],
                 'Benchmark Brand Share': row[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE.value],
                 'Benchmark Brand Menu Placements': row[GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value],
+                'Benchmark Brand Menu Share Growth': row[GroupPrioritizationMetrics.BENCHMARK_MENU_SHARE_GROWTH.value],
                 'Strategic Role': row[GroupPrioritizationMetrics.STRATEGIC_ROLE.value]
             })
         
@@ -289,7 +348,6 @@ class GroupPrioritization:
         
         brand_name = parameters.brand_name
         benchmark_name = parameters.benchmark_brand
-        period = parameters.period
         
         title = f"Group Prioritization: {brand_name} vs. {benchmark_name}"
                

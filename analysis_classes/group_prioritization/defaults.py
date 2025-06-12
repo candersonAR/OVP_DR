@@ -55,10 +55,11 @@ class GroupPrioritizationMetrics(Enum):
 
 class STRATEGIC_ROLES(Enum):
     DEFEND_AND_LEAD = "Defend & Lead"
-    AT_RISK = "At Risk"
-    ACCELERATE_GROWTH = "Accelerate Growth"
-    FIX_AND_EXPAND = "Fix & Expand"
-    MONITOR_OR_DEPRIORITIZE = "Monitor or Deprioritize"
+    PROTECT_POSITIONING = "Protect Positioning"
+    INVEST_TO_GROW = "Invest to Grow"
+    OPTIMIZE_OR_REPOSITION = "Optimize or Reposition"
+    MONITOR_AND_NURTURE = "Monitor and Nurture"
+    DEPRIORITIZE = "Deprioritize"
 
 METRICS_MAPPING = {
     GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value: "Cocktail Menu Placements",
@@ -105,7 +106,7 @@ METRIC_INFO = {
         "metric_type": "share",
         "is_share": True,
         "is_growth": False,
-        "fmt": ",.2%",
+        "fmt": ",.3%",
         "growth_fmt": "bps",
         "hide_percentage_change": True,
     },
@@ -119,7 +120,7 @@ METRIC_INFO = {
         "is_share": True,
         "is_growth": True,
         "fmt": ",.2%",
-        "growth_fmt": ",.2pp",
+        "growth_fmt": ",.3pp",
         "hide_percentage_change": True,
     },
     GroupPrioritizationMetrics.BENCHMARK_MENU_PLACEMENTS.value: {
@@ -143,7 +144,7 @@ METRIC_INFO = {
         "metric_type": "share",
         "is_share": True,
         "is_growth": False,
-        "fmt": ",.2%",
+        "fmt": ",.3%",
         "growth_fmt": "bps",
         "hide_percentage_change": True,
     },
@@ -157,7 +158,7 @@ METRIC_INFO = {
         "is_share": True,
         "is_growth": True,
         "fmt": ",.2%",
-        "growth_fmt": ",.2pp",
+        "growth_fmt": ",.3pp",
         "hide_percentage_change": True,
     },
     GroupPrioritizationMetrics.STRATEGIC_ROLE.value: {
@@ -183,7 +184,9 @@ DEFAULT_METRICS = [
     MenuColNames.BRAND_NAME_COL.value,
 ]
 
-DEFAULT_PERIOD = ["ytd"]    
+DEFAULT_PERIOD = ["ytd"]
+SIMILAR_SHARE_CUTOFF = 0.005
+STAGNANT_GROWTH_THRESHOLD = 0.01
 
 @dataclass
 class GroupPrioritizationInit:
