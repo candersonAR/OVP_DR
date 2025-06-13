@@ -123,8 +123,18 @@ class GroupPrioritization:
             # Brand is stagnant or declining
             else:
                 return STRATEGIC_ROLES.DEPRIORITIZE.value
+            
+    def get_cocktail_placements(self, metrics: List[dict], period_filter: dict, other_filters: List[dict]) -> pd.DataFrame:
+        
+        df = self.pull_data_func(
+            metrics=metrics,
+            breakouts=[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value],
+            filters=[period_filter]
+        )
+        self.check_row_limit(df)
+        return df
 
-    def get_period_data(self, metrics: List[dict], period_filter: dict, other_filters: List[dict]) -> pd.DataFrame:
+    def get_brand_placements(self, metrics: List[dict], period_filter: dict, other_filters: List[dict]) -> pd.DataFrame:
         """Pull all necessary data in one query with cocktail and brand as breakouts"""
         
         df = self.pull_data_func(
@@ -137,7 +147,7 @@ class GroupPrioritization:
         
         return df
     
-    def process_period_data(self, df: pd.DataFrame, brand_name: str, benchmark_name: str) -> pd.DataFrame:
+    def process_period_data(self, cocktail_df: pd.DataFrame, df: pd.DataFrame, brand_name: str, benchmark_name: str) -> pd.DataFrame:
         """Process data for a single period to calculate placements and shares"""
         
         brand_col = MenuColNames.BRAND_NAME_COL.value
@@ -148,7 +158,10 @@ class GroupPrioritization:
 
         grouped_by_cocktail = df.groupby(cocktail_col)
         brands_per_cocktail = grouped_by_cocktail[MenuColNames.BRAND_NAME_COL.value].nunique().reset_index(name="total_brands")
-        cocktail_totals_df = grouped_by_cocktail['menu_placements'].sum().reset_index(name=GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value)
+        
+        cocktail_totals_df = cocktail_df.rename(columns={
+            "menu_placements": GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value
+        })
         cocktail_totals_df = cocktail_totals_df.merge(brands_per_cocktail, on=cocktail_col, how='left')
         cocktail_totals_df['avg_placements_per_brand'] = cocktail_totals_df[GroupPrioritizationMetrics.COCKTAIL_MENU_PLACEMENTS.value] / cocktail_totals_df['total_brands']
         cocktail_totals_df['avg_market_share'] = 1 / cocktail_totals_df['total_brands']
@@ -177,12 +190,14 @@ class GroupPrioritization:
         current_period = parameters.period_filters[0]
         comparison_period = parameters.period_filters[1] if len(parameters.period_filters) > 1 else None
         
-        current_data = self.get_period_data(parameters.metrics, current_period, [])
-        brand_df_current, benchmark_df_current = self.process_period_data(current_data, brand_name, benchmark_name)
+        current_cocktail_data = self.get_cocktail_placements(parameters.metrics, current_period, [])
+        current_brand_data = self.get_brand_placements(parameters.metrics, current_period, [])
+        brand_df_current, benchmark_df_current = self.process_period_data(current_cocktail_data, current_brand_data, brand_name, benchmark_name)
         
         if comparison_period:
-            comparison_data = self.get_period_data(parameters.metrics, comparison_period, [])
-            brand_df_comparison, benchmark_df_comparison = self.process_period_data(comparison_data, brand_name, benchmark_name)
+            comparison_cocktail_data = self.get_cocktail_placements(parameters.metrics, comparison_period, [])
+            comparison_brand_data = self.get_brand_placements(parameters.metrics, comparison_period, [])
+            brand_df_comparison, benchmark_df_comparison = self.process_period_data(comparison_cocktail_data, comparison_brand_data, brand_name, benchmark_name)
 
             brand_df_comparison = brand_df_comparison.rename(columns={
                 GroupPrioritizationMetrics.BRAND_MENU_SHARE.value: GroupPrioritizationMetrics.BRAND_MENU_SHARE.value + '_prev',
