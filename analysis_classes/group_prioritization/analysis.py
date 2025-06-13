@@ -83,44 +83,44 @@ class GroupPrioritization:
                                avg_placements_per_brand: float, avg_market_share: float) -> str:
         """Determine strategic role based on share and growth comparison"""
         
-        # If brand is above average placements (Leading)
+        # Brand is above average placements (Leading)
         if brand_menu_placements > avg_placements_per_brand:
-            # If brand is similar to benchmark share
+            # Brand is similar to benchmark share
             if brand_share < benchmark_share + SIMILAR_SHARE_CUTOFF and brand_share > benchmark_share - SIMILAR_SHARE_CUTOFF:
                 return STRATEGIC_ROLES.INVEST_TO_GROW.value                
                 
-            # If brand is above benchmark share
+            # Brand is above benchmark share
             elif brand_share >= benchmark_share:
-                # If brand is stagnant
+                # Brand is stagnant
                 if brand_growth >= -STAGNANT_GROWTH_THRESHOLD and brand_growth <= STAGNANT_GROWTH_THRESHOLD:
                     return STRATEGIC_ROLES.DEFEND_AND_LEAD.value
                 
-                # If brand is growing
+                # Brand is growing
                 elif brand_growth >= STAGNANT_GROWTH_THRESHOLD:
                     return STRATEGIC_ROLES.PROTECT_POSITIONING.value
                 
-                # If brand is declining
+                # Brand is declining
                 else:
                     return STRATEGIC_ROLES.DEFEND_AND_LEAD.value
             
-            # If brand is below benchmark share (Lagging)
+            # Brand is below benchmark share (Lagging)
             else:
-                # If brand is stagnant or declining
+                # Brand is stagnant or declining
                 if brand_growth <= STAGNANT_GROWTH_THRESHOLD:
                     return STRATEGIC_ROLES.OPTIMIZE_OR_REPOSITION.value
                 
-                # If brand is growing
+                # Brand is growing
                 else:
                     return STRATEGIC_ROLES.INVEST_TO_GROW.value
                 
                 
-        # If brand is below average placements (Lagging)
+        # Brand is below average placements (Lagging)
         else:
-            # If brand is growing
+            # Brand is growing
             if brand_growth >= STAGNANT_GROWTH_THRESHOLD:
                 return STRATEGIC_ROLES.MONITOR_AND_NURTURE.value
             
-            # If brand is stagnant or declining
+            # Brand is stagnant or declining
             else:
                 return STRATEGIC_ROLES.DEPRIORITIZE.value
 
@@ -136,14 +136,6 @@ class GroupPrioritization:
         self.check_row_limit(df)
         
         return df
-
-    # def get_cocktail_menu_placements(self, period_filter: dict) -> pd.DataFrame:
-    #     df = self.pull_data_func(
-    #         metrics=[{"name":"product_id", "label": "Product ID"}],
-    #         breakouts=[MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value],
-    #         filters=[period_filter]
-    #     )
-    #     return df
     
     def process_period_data(self, df: pd.DataFrame, brand_name: str, benchmark_name: str) -> pd.DataFrame:
         """Process data for a single period to calculate placements and shares"""
@@ -184,8 +176,6 @@ class GroupPrioritization:
         benchmark_name = parameters.benchmark_brand
         current_period = parameters.period_filters[0]
         comparison_period = parameters.period_filters[1] if len(parameters.period_filters) > 1 else None
-        
-        # cocktail_menu_placements_df = self.get_cocktail_menu_placements(current_period)
         
         current_data = self.get_period_data(parameters.metrics, current_period, [])
         brand_df_current, benchmark_df_current = self.process_period_data(current_data, brand_name, benchmark_name)
