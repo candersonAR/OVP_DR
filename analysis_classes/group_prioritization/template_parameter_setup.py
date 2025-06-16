@@ -103,7 +103,7 @@ class GroupPrioritizationTemplateParameterSetup(TemplateParameterSetup):
             "benchmark_brand": parameters.arguments.benchmark_brand,
             "growth_type": parameters.arguments.growth_type,
             "other_filters": parameters.arguments.other_filters or [],
-            "limit_n": parameters.arguments.limit_n
+            "limit_n": self.convert_to_int(parameters.arguments.limit_n)
         }
 
         env = SimpleNamespace(**param_dict)

@@ -149,7 +149,7 @@ class GroupPrioritization:
     
     def process_period_data(self, cocktail_df: pd.DataFrame, df: pd.DataFrame, brand_name: str, benchmark_name: str) -> pd.DataFrame:
         """Process data for a single period to calculate placements and shares"""
-        
+
         brand_col = MenuColNames.BRAND_NAME_COL.value
         cocktail_col = MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value
         

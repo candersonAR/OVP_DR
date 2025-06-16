@@ -81,3 +81,14 @@ class TestGroupPrioritization:
         except ExitFromSkillException as e:
             assert "Multiple brand filters found" in str(e)
     
+
+    def test_title_and_subtitle(self):
+        
+        out = self._run_group_prioritization(parameters={
+            'periods': [self.period__ytd],
+            "benchmark_brand": "ten to one rum",
+            'other_filters': [self.filter__brand_name__papa_pilar]
+        })
+
+        # assert out.title == "Group Prioritization"
+        # assert out.subtitle == "Group Prioritization"
