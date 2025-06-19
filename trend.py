@@ -149,13 +149,16 @@ def trend(parameters: SkillInput):
                                                 parameters.arguments.table_viz_layout,
                                                 parameters.arguments.chart_viz_layout)
 
+    display_charts = env.trend.display_charts
+
     return SkillOutput(
         final_prompt=final_prompt,
         narrative=None,
         visualizations=viz,
         parameter_display_descriptions=param_info,
         followup_questions=[],
-        export_data=[ExportData(name="Metrics Table", data=tables[0])]
+        export_data=[ExportData(name="Metrics Table", data=tables[0]),
+                     *[ExportData(name=chart, data=display_charts[chart].get("df")) for chart in display_charts.keys()]]
     )
 
 def render_layout(

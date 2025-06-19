@@ -139,7 +139,7 @@ def uplift_performance(parameters: SkillInput):
         visualizations=viz,
         parameter_display_descriptions=param_info,
         followup_questions=[SuggestedQuestion(label=f.get("label"), question=f.get("question")) for f in followups if f.get("label")],
-        export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
+        export_data=[ExportData(name=name, id=df.max_metadata.get_id(), data=df) for name, df in export_data.items()]
     )
 
 if __name__ == '__main__':

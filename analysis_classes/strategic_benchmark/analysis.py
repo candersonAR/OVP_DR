@@ -2,11 +2,11 @@ from typing import List, Optional, Tuple
 import pandas as pd
 import numpy as np
 from ar_analytics import pull_data
-from ar_analytics.helpers.utils import old_get_filters_headline, old_get_date_label_str, old_split_dim_and_metric_filters
+from ar_analytics.helpers.utils import old_get_filters_headline, old_get_date_label_str, PreQueryOperator, exit_with_status, is_filter_token, OldDimensionHierarchy
 from skill_framework import ExportData, SkillOutput
 
-from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRIC_GROUP_MAPPING, StrategicBenchmarkInit, StrategicBenchmarkParameters, StrategicBenchmarkRunResult
-from overproof_utilities import MenuColNames, OverproofSharedFn
+from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRIC_GROUP_MAPPING, StrategicBenchmarkCustomMetrics, StrategicBenchmarkInit, StrategicBenchmarkParameters, StrategicBenchmarkRunResult
+from overproof_utilities import MenuColNames, OverproofSharedFn, calculate_market_share_denominator, get_share_totals
 from overproof_visualization_utilities import render_layout
 
 # Do not remove, pulls in max_metadata on all pandas DFs
@@ -16,11 +16,15 @@ class StrategicBenchmark:
     def __init__(self, init: StrategicBenchmarkInit):
 
         self.con = init.sql_exec
-        self.dim_hierarchy = init.dim_hierarchy
         self.compare_date_warning_msg = init.compare_date_warning_msg
         self.pills = init.pills
         self.metric_props = init.metric_props
         self.dim_props = init.dim_props
+
+        if not init.dim_hierarchy:
+            raise exit_with_status("Dim Hierarchy not provided for share metrics")
+        else:
+            self.dim_hierarchy = OldDimensionHierarchy(init.dim_hierarchy)
 
         self.max_prompt = init.max_prompt
         self.insight_prompt = init.insight_prompt
@@ -67,12 +71,18 @@ class StrategicBenchmark:
     
     def get_breakout_data(self, 
         metrics: List[dict], 
-        breakouts: Optional[List[str]] = None, 
+        breakout: Optional[str] = None, 
         query_filters: List[dict] = None
     ) -> pd.DataFrame:
         
         if not query_filters:
             query_filters = []
+
+        breakouts = [breakout] if breakout else []
+
+        dfs = []
+
+        # get metrics that can be pulled in a single pull, ie don't require additional filters or logic
 
         first_pull_metrics = [
             metric for metric in metrics 
@@ -84,35 +94,160 @@ class StrategicBenchmark:
             ]
         ]
 
-        if breakouts:
-        
-            breakout_df = self.pull_data_func(
-                metrics=first_pull_metrics,
+        breakout_df = self.pull_data_func(
+            metrics=first_pull_metrics,
+            breakouts=breakouts,
+            filters=query_filters
+        )
+
+        if not breakout_df.empty:
+            dfs.append(breakout_df)
+
+        # get single spirit and cocktail mentions, average monthly mentions
+        menu_placement_metric = self.helper.get_metric_prop(MenuColNames.MENU_PLACEMENTS_METRIC.value, self.metric_props)
+        cocktail_mentions_metric = [metric for metric in metrics if metric['name'].lower() == StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value.lower()]
+        single_spirit_mentions_metric = [metric for metric in metrics if metric['name'].lower() == StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value.lower()]
+        average_monthly_mentions_metric = [metric for metric in metrics if metric['name'].lower() == StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value.lower()]
+        menu_placement_share_metric = [metric for metric in metrics if metric['name'].lower() == MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value.lower()]
+
+        if cocktail_mentions_metric:
+
+            cocktail_mentions_filters = query_filters + [
+                {
+                    "col": MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value,
+                    "op": PreQueryOperator.NOT_NULL.value,
+                    "val": None
+                }
+            ]
+
+            cocktail_mentions_df = self.pull_data_func(
+                metrics=[menu_placement_metric],
                 breakouts=breakouts,
+                filters=cocktail_mentions_filters
+            )
+
+            cocktail_mentions_df = cocktail_mentions_df.rename(columns={
+                menu_placement_metric['name']: StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value
+            })
+
+            if not cocktail_mentions_df.empty:
+                dfs.append(cocktail_mentions_df)
+
+        if single_spirit_mentions_metric:
+
+            single_spirit_mentions_filters = query_filters + [
+                {
+                    "col": MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value,
+                    "op": PreQueryOperator.NULL.value,
+                    "val": None
+                }
+            ]
+
+            single_spirit_mentions_df = self.pull_data_func(
+                metrics=[menu_placement_metric],
+                breakouts=breakouts,
+                filters=single_spirit_mentions_filters
+            )
+
+            single_spirit_mentions_df = single_spirit_mentions_df.rename(columns={
+                menu_placement_metric['name']: StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value
+            })
+
+            if not single_spirit_mentions_df.empty:
+                dfs.append(single_spirit_mentions_df)
+
+        if average_monthly_mentions_metric:
+
+            month_col = MenuColNames.MAX_TIME_MONTH_COL.value
+            average_monthly_breakouts = [month_col] + (breakouts if breakouts else [])
+
+            average_monthly_mentions_df = self.pull_data_func(
+                metrics=[menu_placement_metric],
+                breakouts=average_monthly_breakouts,
                 filters=query_filters
             )
+
+            # get the monthly average for each breakout
+            if breakouts:
+                average_monthly_mentions_df = average_monthly_mentions_df.groupby(breakouts).mean().reset_index()
+            else:
+                average_monthly_mentions_df = average_monthly_mentions_df.groupby(lambda x: True).mean().reset_index(drop=True)
+
+            average_monthly_mentions_df = average_monthly_mentions_df.rename(columns={
+                menu_placement_metric['name']: StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value
+            })
+
+            if not average_monthly_mentions_df.empty:
+                dfs.append(average_monthly_mentions_df)
+
+        if menu_placement_share_metric and not breakout_df.empty:
+
+            keep_cols = breakouts + [MenuColNames.MENU_PLACEMENTS_METRIC.value]
+
+            menu_placement_share_df = get_share_totals(
+                pull_data_func=self.pull_data_func,
+                dim_hierarchy=self.dim_hierarchy,
+                numerator_df=breakout_df[keep_cols],
+                metrics=[menu_placement_metric],
+                breakout=breakout,
+                query_filters=query_filters
+            )
+
+            menu_placement_share_df = menu_placement_share_df.rename(columns={
+                menu_placement_metric['name']: MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value
+            })
+
+            if not menu_placement_share_df.empty:
+                dfs.append(menu_placement_share_df)
+
+        if not dfs:
+            exit_with_status("No data found for the given filters")
+
+        # merge the dfs on the breakout dims
+        if breakouts:
+
+            breakout_df: pd.DataFrame = dfs[0]
+
+            for df in dfs[1:]:
+                breakout_df = breakout_df.merge(df, on=breakouts, how='left')
 
         else:
-            breakout_df = self.pull_data_func(
-                metrics=first_pull_metrics,
-                filters=query_filters
-            )
+
+            breakout_df = pd.concat(dfs, axis=1)
 
         return breakout_df
+    
+    def get_growth_type_label(self, growth_type: str) -> str:
+        return "yoy" if growth_type == "Y/Y" else "pop"
+    
+    def get_growth_diff_col(self, growth_type: str) -> str:
+        growth_type_label = self.get_growth_type_label(growth_type)
+        return f"{growth_type_label} diff"
+    
+    def get_growth_pct_col(self, growth_type: str) -> str:
+        growth_type_label = self.get_growth_type_label(growth_type)
+        return f"{growth_type_label} %"
 
-    def calculate_growth(self, subject_df: pd.DataFrame, subject_val_col: str, subject_val_prev_col: str, growth_type: str = "Y/Y") -> pd.DataFrame:
+    def calculate_growth(self, subject_df: pd.DataFrame, subject_val_col: str, subject_val_prev_col: str, metrics: List[dict], growth_type: str = "Y/Y") -> pd.DataFrame:
 
         '''
         Calculate the growth for the subject.
         '''
 
-        growth_type_label = "yoy" if growth_type == "Y/Y" else "pop"
+        growth_diff_col = self.get_growth_diff_col(growth_type)
+        growth_pct_col = self.get_growth_pct_col(growth_type)
 
-        subject_df[f"{growth_type_label} diff"] = subject_df[subject_val_col] - subject_df[subject_val_prev_col]
-        subject_df[f"{growth_type_label} %"] = np.where(
-            subject_df[subject_val_prev_col] != 0,
-            np.round(subject_df[f"{growth_type_label} diff"] / np.abs(subject_df[subject_val_prev_col]), 6),
-            np.nan
+        hide_percentage_metrics = [metric['name'].lower() for metric in metrics if metric.get("hide_percentage_change")]
+
+        subject_df[growth_diff_col] = subject_df[subject_val_col] - subject_df[subject_val_prev_col]
+        subject_df[growth_pct_col] = np.where(
+            subject_df.index.isin(hide_percentage_metrics),
+            subject_df[growth_diff_col],
+            np.where(
+                subject_df[subject_val_prev_col] != 0,
+                np.round(subject_df[growth_diff_col] / np.abs(subject_df[subject_val_prev_col]), 6),
+                np.nan
+            )
         )
 
         return subject_df
@@ -138,7 +273,7 @@ class StrategicBenchmark:
         # merge on index of dfs
         subject_df = subject_df.merge(subject_growth_df, left_index=True, right_index=True, how='left')
 
-        subject_df = self.calculate_growth(subject_df, subject_val_col, subject_value_prev_col, growth_type)
+        subject_df = self.calculate_growth(subject_df, subject_val_col, subject_value_prev_col, metrics, growth_type)
 
         subject_df.drop(columns=[subject_value_prev_col], inplace=True)
 
@@ -168,12 +303,16 @@ class StrategicBenchmark:
 
         else:
             subject_df.rename(columns={self.benchmark_quantile_col: self.benchmark_goal_col}, inplace=True)
+            subject_df = subject_df[[col for col in subject_df.columns if col != self.benchmark_goal_col] + [self.benchmark_goal_col]]
 
         return subject_df
     
-    def get_facts_df(self, subject_df: pd.DataFrame, metrics: List[dict]) -> pd.DataFrame:
+    def get_facts_df(self, subject_df: pd.DataFrame, metrics: List[dict], growth_type: str) -> pd.DataFrame:
         
         facts_df = subject_df.copy()
+
+        growth_diff_col = self.get_growth_diff_col(growth_type)
+        growth_pct_col = self.get_growth_pct_col(growth_type)
 
         # Apply formatting for each metric
         for metric in metrics:
@@ -182,7 +321,8 @@ class StrategicBenchmark:
             facts_df.loc[metric_name] = pd.Series({
                 col: self.helper.get_formatted_num(
                     row[col],
-                    metric['growth_fmt'] if '%' in col else metric['fmt']
+                    metric['growth_fmt'] if col == growth_pct_col or (col == growth_diff_col and metric.get("hide_percentage_change")) else metric['fmt'],
+                    signed = col == growth_diff_col
                 )
                 for col in facts_df.columns
             })
@@ -192,6 +332,14 @@ class StrategicBenchmark:
         facts_df = facts_df.rename(columns={'index': 'Metrics'})
 
         facts_df.insert(loc=0, column='Metric Group', value=facts_df['Metrics'].apply(lambda x: DEFAULT_METRIC_GROUP_MAPPING.get(x, x))        )
+
+        # order df by the metrics list order
+        metric_names = [metric['name'].lower() for metric in metrics]
+
+        ordering_col = 'ordering'
+        facts_df[ordering_col] = facts_df['Metrics'].apply(lambda x: metric_names.index(x.lower()))
+        facts_df = facts_df.sort_values(by=ordering_col)
+        facts_df.drop(columns=[ordering_col], inplace=True)
 
         met_renames = {metric['name'].lower(): metric.get("label", metric['name']) for metric in metrics}
         facts_df['Metrics'] = facts_df['Metrics'].apply(lambda x: met_renames.get(x.lower(), x))
@@ -255,19 +403,19 @@ class StrategicBenchmark:
 
         breakout_df = self.get_breakout_data(
             metrics=parameters.metrics,
-            breakouts=[breakout_dim],
+            breakout=breakout_dim,
             query_filters=parameters.query_filters + ([current_period_filter] if current_period_filter else [])
         )
 
         subject_df = self.pivot_to_metrics_on_rows(breakout_df[breakout_df[breakout_dim].str.lower() == parameters.subject_filter['val'].lower()], breakout_dim)
         peer_df = self.pivot_to_metrics_on_rows(breakout_df[breakout_df[breakout_dim].str.lower().isin([filter['val'].lower() for filter in parameters.peer_filters])], breakout_dim)
         
-        subject_df = self.add_subject_growth(subject_df, parameters.metrics, parameters.query_filters, growth_period_filter, parameters.subject_filter)
+        subject_df = self.add_subject_growth(subject_df, parameters.metrics, parameters.query_filters, growth_period_filter, parameters.subject_filter, parameters.growth_type)
         subject_df = self.add_quantiles(subject_df, breakout_df, breakout_dim)
         subject_df = pd.concat([subject_df, peer_df], axis=1)
         subject_df = self.add_goals(subject_df, peer_df)
 
-        facts_df = self.get_facts_df(subject_df, parameters.metrics)
+        facts_df = self.get_facts_df(subject_df, parameters.metrics, parameters.growth_type)
         table_df = self.get_table_df(facts_df, parameters.metrics, breakout_dim, parameters.query_filters)
 
         title, subtitle = self.get_title_and_subtitle(parameters)
@@ -310,5 +458,5 @@ class StrategicBenchmark:
             visualizations=viz,
             parameter_display_descriptions=self.pills,
             followup_questions=run_result.followups,
-            export_data=[ExportData(name=name, data=df) for name, df in export_data.items()]
+            export_data=[ExportData(name=name, id=df.max_metadata.get_id(), data=df) for name, df in export_data.items()]
         )

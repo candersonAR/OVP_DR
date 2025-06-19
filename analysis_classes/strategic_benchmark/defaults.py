@@ -42,23 +42,54 @@ Facts:
 Summary:"""
 )
 
+class StrategicBenchmarkCustomMetrics(Enum):
+    COCKTAIL_MENTIONS = "cocktail_mentions"
+    SINGLE_SPIRIT_MENTIONS = "single_spirit_mentions"
+    AVERAGE_MONTHLY_MENTIONS = "average_monthly_mentions"
+
+STRAGEGIC_BENCHMARK_CUSTOM_METRIC_PROPS = {
+    StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value: {
+        "name": StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value,
+        "label": "Cocktail Mentions"
+    },
+    StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value: {
+        "name": StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value,
+        "label": "Single Spirit Mentions"
+    },
+    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value: {
+        "name": StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value,
+        "label": "Average Monthly Mentions",
+        "fmt": ",.2f"
+    }
+}
+
 class MetricGroup(Enum):
     MENU_PRESENCE = "Menu Presence"
     VENUE_PRESENCE = "Venue Presence"
     GEOGRAPHICAL_EXPANSION = "Geographical Expansion"
+    VELOCITY = "Velocity"
+    MARKET_SHARE_AND_PLACEMENT_HEALTH = "Market Share & Placement Health"
 
 DEFAULT_METRICS = [
     MenuColNames.MENU_PLACEMENTS_METRIC.value, 
+    StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value,
+    StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value,
     MenuColNames.VENUE_PLACEMENTS_METRIC.value,
     MenuColNames.STATE_MENTIONS_METRIC.value,
-    MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value
+    MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value,
+    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value,
+    MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value
 ]
 
 DEFAULT_METRIC_GROUP_MAPPING = {
     MenuColNames.VENUE_PLACEMENTS_METRIC.value: MetricGroup.VENUE_PRESENCE.value,
     MenuColNames.MENU_PLACEMENTS_METRIC.value: MetricGroup.MENU_PRESENCE.value,
+    StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value: MetricGroup.MENU_PRESENCE.value,
+    StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value: MetricGroup.MENU_PRESENCE.value,
     MenuColNames.STATE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value,
-    MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value
+    MenuColNames.POSTAL_CODE_MENTIONS_METRIC.value: MetricGroup.GEOGRAPHICAL_EXPANSION.value,
+    StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value: MetricGroup.VELOCITY.value,
+    MenuColNames.MENU_PLACEMENTS_SHARE_METRIC.value: MetricGroup.MARKET_SHARE_AND_PLACEMENT_HEALTH.value
 }
 
 @dataclass
@@ -81,8 +112,8 @@ class StrategicBenchmarkParameters:
     peer_filters: list[dict]
     query_filters: Optional[list[dict]] = None
     period_filters: Optional[list[dict]] = None
-    compare_date_warning_msg: Optional[str] = None
     date_labels: Optional[dict] = None
+    growth_type: Optional[str] = "Y/Y"
 
 @dataclass
 class StrategicBenchmarkRunResult:

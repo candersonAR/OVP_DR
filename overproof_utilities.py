@@ -1,10 +1,11 @@
 import copy
 import math
+import numpy as np
 import pandas as pd
 
 from enum import Enum
-from typing import List, Tuple
-from ar_analytics.helpers.utils import SharedFn
+from typing import List, Optional, Tuple
+from ar_analytics.helpers.utils import SharedFn, is_filter_token, OldDimensionHierarchy
 
 # Cocktail dimension constants
 
@@ -13,6 +14,7 @@ class MenuColNames(Enum):
     MENU_PLACEMENTS_METRIC = "menu_placements"
     VENUE_PLACEMENTS_METRIC = "venue_placements"
     MENU_PLACEMENTS_SHARE_METRIC = "menu_placements_share"
+    VENUE_PLACEMENTS_SHARE_METRIC = "venue_placements_share"
     SOLD_9LE_METRIC = "sold_9le"
     SOLD_CASES_METRIC = "sold_cases"
     STATE_MENTIONS_METRIC = "state_mentions"
@@ -56,6 +58,9 @@ class MenuColNames(Enum):
     VENUE_NAME_COL = "venue__name"
     VENUE_CATEGORY_COL = "venue__category_name"
     VENUE_PREMISE_TYPE_COL = "venue__premise_type"
+    # Added for BDI/CDI breakout dimensions
+    STATE_NAME_COL = "state_name"
+    VENUE__COUNTY_COL = "venue__county"
     CHAIN_NAME_COL = "chain_name"
     PRODUCT_ID_COL = "product_id"
 
@@ -329,5 +334,93 @@ def calculate_market_share_denominator(
         df = non_count_df
     else:
         df = pd.DataFrame()
+
+    return df
+
+# Overwriting so that the share for count metrics is calculated correctly for count metrics.
+def get_share_totals(
+        pull_data_func,
+        dim_hierarchy: OldDimensionHierarchy,
+        numerator_df: pd.DataFrame,
+        metrics: List[dict], 
+        breakout: Optional[str] = None, 
+        query_filters: List[dict] = None
+    ):
+
+    '''
+    Calculate the market share for a given numerator_df based on the given msa component metrics, breakout, and query_filters.
+
+    Args:
+        pull_data_func: function: The function to pull the data.
+        dim_hierarchy: OldDimensionHierarchy: The dimension hierarchy.
+        numerator_df: pd.DataFrame: The numerator dataframe.
+        metrics: List[dict]: The msa component metrics to calculate the market share for.
+        breakout: Optional[str]: The breakout to calculate the market share for.
+        query_filters: List[dict]: The query filters to calculate the market share for.
+
+    Returns:
+        pd.DataFrame: A dataframe with the metric market share for the given metrics, breakout, and query_filters.
+    '''
+
+    breakout_filters = query_filters.copy()
+    market_filters = [f for f in breakout_filters if
+                        not is_filter_token(f['val']) and f['col'] not in dim_hierarchy.owner_cols]
+    
+    if breakout:
+
+        # check if filters are the same for numerator and denominator
+        # if it's the same then calculate contribution to total
+        if market_filters == breakout_filters:
+            groupby = []
+            subject_breakout = breakout
+        # only breakout the denominator if it is not an owner column
+        elif breakout in dim_hierarchy.owner_cols:
+            groupby = []
+            subject_breakout = breakout
+        else:
+            groupby = [breakout]
+            subject_filters = [f for f in breakout_filters if
+                    not is_filter_token(f['val']) and f['col'] in dim_hierarchy.owner_cols]
+            subject_breakout = subject_filters[0]['col'] if subject_filters else None
+
+        denominator_df = calculate_market_share_denominator(
+            pull_data_func = pull_data_func,
+            metrics=metrics,
+            breakouts=groupby,
+            filters=market_filters,
+            subject_breakout=subject_breakout
+        )
+
+        if groupby:
+            df = numerator_df.merge(denominator_df, on=groupby, how='left', suffixes=('', '__market'))
+        else:
+            # add __market to the cols of denominator_df
+            denominator_df = denominator_df.add_suffix('__market')
+            # Use merge with cross join to apply denominator values to all rows
+            df = numerator_df.merge(denominator_df, how='cross')
+
+    else:
+        subject_filters = [f for f in breakout_filters if
+                not is_filter_token(f['val']) and f['col'] in dim_hierarchy.owner_cols]
+        subject_breakout = subject_filters[0]['col'] if subject_filters else None
+        denominator_df = calculate_market_share_denominator(
+            pull_data_func = pull_data_func,
+            metrics=metrics,
+            filters=market_filters,
+            subject_breakout=subject_breakout
+        )
+
+        denominator_df = denominator_df.add_suffix('__market')
+        df = pd.concat([numerator_df, denominator_df], axis=1)
+
+    for metric in metrics:
+        metric_name = metric['name']
+        df[f"{metric_name}"] = df[f"{metric_name}"].div(
+            df[f"{metric_name}__market"].replace(0, np.nan),
+            fill_value=0
+        )
+
+    # drop __market cols
+    df = df.drop(columns=[col for col in df.columns if '__market' in col])
 
     return df

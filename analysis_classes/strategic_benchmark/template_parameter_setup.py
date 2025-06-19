@@ -1,9 +1,10 @@
+import copy
 from types import SimpleNamespace
 from typing import List, Tuple
 from ar_analytics.helpers.utils import TemplateParameterSetup, SkillPlatform, exit_with_status, Connector
 from skill_framework import ParameterDisplayDescription, SkillInput
 
-from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRICS, StrategicBenchmarkInit, StrategicBenchmarkParameters
+from analysis_classes.strategic_benchmark.defaults import DEFAULT_METRICS, STRAGEGIC_BENCHMARK_CUSTOM_METRIC_PROPS, StrategicBenchmarkCustomMetrics, StrategicBenchmarkInit, StrategicBenchmarkParameters
 from overproof_utilities import MenuColNames
 
 import logging
@@ -39,6 +40,19 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
             else:
                 pills.append(ParameterDisplayDescription(key="compare_period", value=f"Compare Period: {compare_start_date} to {compare_end_date}"))
         return pills
+    
+    def add_custom_metric_props(self, metric_props: dict) -> dict:
+
+        menu_placement_metric: dict = copy.deepcopy(self.helper.get_metric_prop(MenuColNames.MENU_PLACEMENTS_METRIC.value, metric_props))
+
+        for metric in [
+            StrategicBenchmarkCustomMetrics.COCKTAIL_MENTIONS.value,
+            StrategicBenchmarkCustomMetrics.SINGLE_SPIRIT_MENTIONS.value,
+            StrategicBenchmarkCustomMetrics.AVERAGE_MONTHLY_MENTIONS.value
+        ]:
+            metric_props[metric] = {**menu_placement_metric, **STRAGEGIC_BENCHMARK_CUSTOM_METRIC_PROPS[metric]}
+        
+        return metric_props
 
     def map_parameters(self, parameters: SkillInput) -> Tuple[StrategicBenchmarkInit, StrategicBenchmarkParameters]:
 
@@ -80,7 +94,7 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
 
         # Get metric_props, dim_props, setting on env since the chart templates reference these
 
-        metric_props = self.get_metric_props()
+        metric_props = self.add_custom_metric_props(self.get_metric_props())
         dim_props = self.get_dimension_props()
 
         subject_brand_name_filter = parameters.arguments.subject_brand_name_filter
@@ -183,8 +197,8 @@ class StrategicBenchmarkTemplateParameterSetup(TemplateParameterSetup):
             peer_filters=peer_filters,
             query_filters=query_filters,
             period_filters=period_filters,
-            compare_date_warning_msg=compare_date_warning_msg,
-            date_labels=date_labels
+            date_labels=date_labels,
+            growth_type=growth_type
         )
 
         sb_init = StrategicBenchmarkInit(
