@@ -83,7 +83,7 @@ class DataProvider(object):
         time_period_dims = [d for d in breakouts if d in self.max_time_dimensions]
 
         is_cross_query = sales_uplift_metrics or (depletion_metrics and (cocktail_dims or cocktail_filter_dims))
-        is_uplift_performance_query = sales_uplift_metrics and uplift_performance_metrics
+        is_uplift_performance_query = len(sales_uplift_metrics) > 0 and len(uplift_performance_metrics) > 0
 
         dfs = []
         if menu_metrics:
