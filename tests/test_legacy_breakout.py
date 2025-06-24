@@ -176,3 +176,19 @@ class TestLegacyBreakout:
             'other_filters': [self.filter__brand_name__papa_pilar],
             'periods': [self.period__q1_2024]
         })
+
+    # To test whether that depletions are fetched only once (before the cross query code block)
+    def test_diageo_single_spirit_uplift_by_product_category_with_depletions(self):
+        self._assert_simple_breakout_runs_without_errors(parameters={
+            'metrics': [self.metric__single_spirit_uplift, self.metric__sold_9le],
+            'breakouts': [self.breakout__product_category_name],
+            'other_filters': [self.filter__supplier_name__diageo]
+        })
+    
+    # To test cross query code block
+    def test_diageo_menu_uplift_by_product_category_with_depletions_and_cocktail_filter(self):
+        self._assert_simple_breakout_runs_without_errors(parameters={
+            'metrics': [self.metric__menu_uplift, self.metric__sold_9le],
+            'breakouts': [self.breakout__product_category_name],
+            'other_filters': [self.filter__supplier_name__diageo, self.filter__cocktail_group__margaritas]
+        })

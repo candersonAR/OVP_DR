@@ -4,7 +4,6 @@ from overproof_utilities import MenuColNames
 import pytest
 
 class TestPullData:
-    # TODO: Add support for single spirit uplift and cocktail uplift, rewrite all tests using metric__sales_uplift
     metric__menu_uplift = MenuColNames.MENU_UPLIFT_METRIC.value
     metric__single_spirit_uplift = MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value
     metric__cocktail_uplift = MenuColNames.COCKTAIL_UPLIFT_METRIC.value
@@ -120,7 +119,7 @@ class TestPullData:
 
     def test_uplift_cocktail_filter_guardrail(self):
         # Test that cocktail filters are only allowed with cocktail uplift
-        metrics = [{"name": MenuColNames.MENU_UPLIFT_METRIC.value}]
+        metrics = [{"name": MenuColNames.SINGLE_SPIRIT_UPLIFT_METRIC.value}]
         filters = [
             {"col": MenuColNames.BRAND_NAME_COL.value, "op": "equals", "val": "Test Brand"},
             {"col": MenuColNames.INGREDIENT_OF_COCKTAIL_NAME_COL.value, "op": "equals", "val": "Test Cocktail"}
@@ -224,20 +223,13 @@ class TestPullData:
 
         assert self.metric__cocktail_uplift in df.columns
 
-    def test_sales_uplift_by_brand_for_canada_erdinger_in_jan_2025(self):
-        df = self.pull_data_function(
-            metrics = self._get_metrics([self.metric__single_spirit_uplift]),
-            filters = [self.filter__brand_name__erdinger, self.filter__max_time_date__jan_2025, self.filter__country__canada]
-        )
-
-        assert self.metric__single_spirit_uplift in df.columns
-
-    # def test_sales_uplift_for_american_rye_malt_whiskey_from_feb_2023_to_feb_2025(self):
-
+    # No depletion data found for this test
+    # def test_sales_uplift_by_brand_for_canada_erdinger_in_jan_2025(self):
     #     df = self.pull_data_function(
-    #         metrics = self._get_metrics([self.metric__menu_uplift]),
-    #         filters = [self.filter__product_category_name__american_rye_malt_whiskey, self.filter__max_time_date__feb_2023_to_feb_2025]
+    #         metrics = self._get_metrics([self.metric__single_spirit_uplift]),
+    #         filters = [self.filter__brand_name__erdinger, self.filter__max_time_date__jan_2025, self.filter__country__canada]
     #     )
 
-    #     assert self.metric__menu_uplift in df.columns
+    #     assert self.metric__single_spirit_uplift in df.columns
+
         
