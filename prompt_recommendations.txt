@@ -1,0 +1,134 @@
+PROMPT IMPROVEMENT RECOMMENDATIONS
+=================================
+
+AGENT-LEVEL RECOMMENDATIONS
+---------------------------
+
+skillSelectionResponseGuidance (Line 2731)
+==========================================
+
+**Critical Issue:** Contradictory instructions about Cocktail Uplift Performance and Strategic Benchmark
+- Current text: "Avoid selecting the Cocktail Uplift Performance and Strategic Benchmark in user queries. These two skills should not be run from direct user queries."
+- **Problem:** These skills exist in the system with detailed configurations but are marked as unavailable
+- **Recommendation:** Either remove these skills entirely or clarify when they should be used (internal vs external queries)
+
+**High Priority Issue:** Unclear skill selection logic between overlapping skills
+- **Missing Guidance:** No clear decision tree between Dimension Breakout and Metric Drivers for growth questions
+- **Specific Change Needed:** Add: "For growth questions: If user asks 'what's growing' or 'which X are rising' → use Dimension Breakout. If user asks 'why is X growing' or 'what's driving X' → use Metric Drivers."
+
+parameterSelectionResponseGuidance (Line 2732)
+==============================================
+
+**High Priority Issue:** Inconsistent metric guidance across skills
+- **Current Problem:** States "When a user asks how a brand is doing, prioritize using the menu_placements metric" but Dimension Breakout defaults to menu_placements_share
+- **Specific Change:** Clarify metric vs share metric usage: "When asking how a brand is performing in general → use menu_placements. When asking about brand ranking/comparison → use menu_placements_share."
+
+**Medium Priority Issue:** Uplift metric confusion
+- **Current:** Complex rules about uplift metrics with exceptions
+- **Improvement:** Simplify to: "For uplift questions: User must specify which uplift type (menu uplift, cocktail uplift, single spirit uplift). No default assumption allowed."
+
+SKILL-LEVEL RECOMMENDATIONS
+---------------------------
+
+Dimension Breakout
+==================
+
+**Critical Issue:** Description conflicts with other skills
+- **Current:** "menu_placements_share is the default metric. If a metric is not specified, use the menu_placements_share metric."
+- **Problem:** Conflicts with agent-level guidance favoring menu_placements for brand performance
+- **Recommendation:** Change to: "Use menu_placements_share for ranking/comparison questions. Use menu_placements for absolute performance questions."
+
+**High Priority:** Unclear distinction from Trend Analysis
+- **Current limitation:** "If a time period is one of the breakouts, this may not be the correct skill."
+- **Improvement:** Add to description: "Use this skill for single time period analysis or growth within one period. For multi-period trending over time, use Trend Analysis instead."
+
+Market Share Analysis
+====================
+
+**High Priority:** Missing subject filter enforcement
+- **Current limitation:** "Acceptable subjects are limited to any value from the following dimensions: brand, cocktail, product_category, and supplier."
+- **Agent guidance:** "MSA share analysis must have a brand or supplier as a subject filter"
+- **Issue:** Conflicting requirements (allows cocktail/product_category vs requires brand/supplier)
+- **Recommendation:** Align descriptions: "Requires brand or supplier as subject filter. Cannot analyze cocktail or product_category subjects."
+
+Metric Drivers
+==============
+
+**Medium Priority:** Improve "why" question positioning
+- **Current:** Generic description about metric influence
+- **Enhancement:** Lead with: "Primary skill for 'Why' questions. Use when users ask 'What's driving X', 'Why is X happening', or 'What caused X change'."
+
+Trend Analysis
+==============
+
+**High Priority:** Better distinguish from single-period analysis
+- **Current:** "Do not select this time period if a single period of analysis is selected"
+- **Improvement:** Add to capabilities: "Requires multiple time periods for comparison. Cannot show single period snapshots - use Dimension Breakout for single period analysis."
+
+Strategic Benchmark
+===================
+
+**Critical Issue:** Empty description and example questions
+- **Current:** description: "", exampleQuestions: ""
+- **Impact:** Skill is unusable for AI selection
+- **Recommendation:** Add description: "Benchmarks brand/product performance against competitive deciles and peer brands for goal-setting." Add example questions: "How does [brand] benchmark against competitors?", "Where does [product] rank in the market?"
+
+Cocktail Uplift Performance
+===========================
+
+**Critical Issue:** Conflicts with agent-level restrictions
+- **Agent says:** "Avoid selecting... These two skills should not be run from direct user queries"
+- **Skill has:** Detailed capabilities and example questions
+- **Resolution Needed:** Either remove skill entirely or clarify it's for internal use only
+
+CRITICAL DISTINGUISHABILITY ISSUES
+----------------------------------
+
+1. **Dimension Breakout vs Trend Analysis:** Both mention time period restrictions but rules are confusing
+   - **Fix:** Clear temporal scope - Dimension Breakout = single period, Trend Analysis = multiple periods
+
+2. **Market Share Analysis vs Metric Drivers:** Both analyze performance drivers
+   - **Fix:** MSA = share-specific with brand/supplier subjects only, Metric Drivers = general performance with any subject
+
+3. **menu_placements vs menu_placements_share:** Inconsistent guidance across skills
+   - **Fix:** Standardize usage rules across all skills and agent guidance
+
+4. **Cocktail Uplift Performance availability:** Agent guidance conflicts with skill configuration
+   - **Fix:** Resolve whether this skill should be available or removed
+
+5. **Strategic Benchmark completeness:** Missing critical prompt content
+   - **Fix:** Add proper description and example questions for AI selection
+
+IMPLEMENTATION PRIORITY
+-----------------------
+
+1. **Critical:** Resolve Cocktail Uplift Performance and Strategic Benchmark availability conflicts
+2. **Critical:** Align metric selection rules (menu_placements vs menu_placements_share) across all sections
+3. **High:** Add clear temporal decision logic (single period = Dimension Breakout, multiple periods = Trend Analysis)
+4. **High:** Fix Market Share Analysis subject filter requirements consistency
+5. **High:** Complete Strategic Benchmark prompt content (description and examples)
+6. **Medium:** Improve "why" question routing to Metric Drivers
+7. **Medium:** Clarify growth question decision tree in skill selection guidance
+8. **Low:** Minor wording improvements for clarity
+
+ANALYSIS SUMMARY
+================
+
+The current prompt configuration has several critical issues that impact skill distinguishability:
+
+**Major Problems Found:**
+- Contradictory guidance between agent-level and skill-level prompts
+- Two skills (Cocktail Uplift Performance, Strategic Benchmark) in conflicted states
+- Inconsistent metric selection rules across skills
+- Unclear temporal boundaries between similar skills
+- Missing content in Strategic Benchmark skill
+
+**Expected Improvements After Implementation:**
+- Clear decision paths for skill selection
+- Consistent metric usage across all prompts
+- Better temporal scope distinction between skills
+- Resolved conflicts in skill availability
+- More confident AI skill selection in chat scenarios
+
+**Reference Standards Met:**
+This analysis follows the patterns established by well-configured skills (Metric Drivers, Market Share Analysis, Trend Analysis) and aims to bring all skills to the same level of clarity and specificity.

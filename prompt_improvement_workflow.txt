@@ -1,0 +1,318 @@
+PROMPT IMPROVEMENT WORKFLOW
+===========================
+
+TRIGGER COMMAND: "let's make some prompts!"
+
+OVERVIEW
+========
+This workflow guides Claude Code through analyzing and improving prompts in the agent configuration
+to ensure skills are clearly distinguishable in chat and provide optimal user experience.
+
+PRE-ANALYSIS USER CONSULTATION
+==============================
+Before beginning the analysis, ask the user:
+
+"Before I analyze the prompts, I'd like to understand your perspective on the current skills:
+
+1. **Are there any skills that are working particularly well in chat interactions?** 
+   - These can serve as benchmarks for other skills
+
+2. **Are there specific skills that users frequently confuse or select incorrectly?**
+   - These will be prioritized for improvement
+
+3. **Are there any skills you want me to treat as reference standards?**
+   - I'll use these as templates for improving others
+
+4. **Do you have any specific distinguishability concerns between particular skills?**
+   - I'll pay special attention to these skill pairs
+
+Please share any insights about skill performance so I can tailor the analysis accordingly."
+
+Wait for user response before proceeding with the analysis.
+
+CONTEXT FILES TO READ
+====================
+1. **agent_export_analysis.txt** - Understanding of JSON structure and field locations
+2. **agent_export.json** - Current agent configuration with all prompt sections
+3. **Skill Python files** - Implementation details and current @skill decorator configs
+
+PROMPT SECTIONS TO ANALYZE
+==========================
+
+AGENT-LEVEL PROMPTS (Response Guidance Fields)
+----------------------------------------------
+Location: collections.copilots[0] object root level
+
+1. **skillSelectionResponseGuidance**
+   - Purpose: Instructions for AI when selecting which skill to use
+   - Current location: Line ~2731 in agent_export.json
+   - What to assess: Clarity of skill selection logic, edge case handling, restrictions
+
+2. **parameterSelectionResponseGuidance** 
+   - Purpose: Instructions for AI when choosing skill parameters
+   - Current location: Line ~2732 in agent_export.json
+   - What to assess: Parameter defaults, time period handling, metric preferences
+
+3. **answerResponseGuidance**
+   - Purpose: Instructions for AI when providing final responses
+   - Current location: Line ~2733 in agent_export.json
+   - What to assess: Response formatting, data limitations, clarification guidance
+
+SKILL-LEVEL PROMPTS (Individual Skills)
+---------------------------------------
+Location: collections.copilots[0].copilotSkills array - each skill object
+
+For each skill, analyze these fields:
+
+1. **description** - Brief skill summary
+2. **detailedDescription** - Comprehensive explanation of when/how to use
+3. **capabilities** - What the skill can accomplish
+4. **limitations** - Clear restrictions and boundaries  
+5. **exampleQuestions** - Sample questions with [placeholder] format
+6. **parameterGuidance** - Detailed parameter usage instructions
+
+GOOD PROMPT EXAMPLES TO REFERENCE
+=================================
+Use these skills as gold standard examples:
+
+**Metric Drivers** (metric_drivers.py):
+- Clear "Why" question focus
+- Well-defined limitations about time periods and share metrics
+- Good parameter guidance for default hierarchy
+
+**Dimension Breakout** (dimension_breakout.py):
+- Clear breakout and ranking functionality
+- Specific guidance about multiple dimensions = separate tables
+- Good filtering instructions
+
+**Market Share Analysis** (market_share_analysis.py):
+- Clear subject filter requirements (brand/supplier only)
+- Specific about share driving analysis
+- Well-defined scope limitations
+
+**Trend Analysis** (trend.py):
+- Clear time period focus vs single period analysis
+- Good distinction from other temporal skills
+- Clear granularity guidance
+
+ANALYSIS PROCESS
+===============
+
+STEP 1: READ AND UNDERSTAND CONTEXT
+-----------------------------------
+1. Read agent_export_analysis.txt to understand JSON structure
+2. Read agent_export.json focusing on prompt sections listed above
+3. Read skill Python files to understand actual implementation
+4. Note any discrepancies between config and code
+
+STEP 2: ASSESS AGENT-LEVEL PROMPTS
+----------------------------------
+For each response guidance field:
+
+**Evaluation Criteria:**
+- Clarity: Are instructions clear and unambiguous?
+- Completeness: Do they cover all necessary scenarios?
+- Consistency: Do they align with skill-level prompts?
+- Specificity: Are edge cases and restrictions well-defined?
+
+**Common Issues to Look For:**
+- Vague or contradictory skill selection logic
+- Missing parameter defaults or time period handling
+- Unclear response formatting requirements
+- Inconsistent guidance across different response modes
+
+STEP 3: ASSESS SKILL-LEVEL PROMPTS
+----------------------------------
+For each skill, evaluate all prompt fields with special attention to ecosystem positioning:
+
+**MANDATORY REQUIREMENTS:**
+- **Empty/Missing Content:** Any skill with empty or null values for description, detailedDescription, capabilities, limitations, exampleQuestions, or parameterGuidance MUST receive recommendations to add complete content
+- **Ecosystem Positioning:** Each skill must be clearly distinguishable from ALL other skills in the agent
+
+**Description & Detailed Description:**
+- Is the skill's purpose immediately clear?
+- Is it distinguishable from other skills in the ecosystem?
+- Does it explain WHEN to use this skill vs others?
+- **REQUIRED:** If empty/null, must provide comprehensive content
+
+**Capabilities:**
+- Are functional capabilities clearly listed?
+- Do they match actual skill implementation?
+- Are they specific enough to set proper expectations?
+- Do they contrast with other skills' capabilities?
+- **REQUIRED:** If empty/null, must provide detailed capabilities
+
+**Limitations:**
+- Are restrictions clearly stated?
+- Do they prevent misuse or confusion with other skills?
+- Are they consistent with implementation?
+- **REQUIRED:** If empty/null, must provide comprehensive limitations
+
+**Example Questions:**
+- Do they cover the skill's main use cases?
+- Are placeholders ([filter], [dimension]) used properly?
+- Do they demonstrate the skill's unique value vs other skills?
+- Do they avoid overlap with other skills' example questions?
+- **REQUIRED:** If empty/null, must provide diverse, clear examples
+
+**Parameter Guidance:**
+- Are time period instructions comprehensive?
+- Are breakout and filtering rules clear?
+- Are default behaviors well-defined?
+- **REQUIRED:** If empty/null, must provide complete parameter guidance
+
+**Ecosystem Differentiation Analysis:**
+For each skill, explicitly compare against ALL other skills to ensure:
+- Unique positioning and use cases
+- Clear boundaries preventing overlap
+- Distinct example questions that don't confuse skill selection
+- Complementary rather than competing capabilities
+
+STEP 4: COMPREHENSIVE ECOSYSTEM DISTINGUISHABILITY ANALYSIS
+-----------------------------------------------------------
+Conduct a complete cross-skill comparison to identify all potential confusion points:
+
+**Matrix Analysis Approach:**
+- Compare every skill against every other skill in the agent
+- Document overlapping use cases, similar wording, or ambiguous boundaries
+- Pay special attention to user-provided problematic skill pairs
+- Use user-identified benchmark skills as clarity standards
+
+**Common Confusion Points to Analyze:**
+- Skills with overlapping use cases or similar purposes
+- Similar example questions across different skills
+- Unclear boundaries between temporal analysis skills
+- Ambiguous breakout vs filtering guidance
+- Competing or redundant capabilities
+- Missing differentiation in descriptions
+
+**Ecosystem Mapping:**
+Create a clear map of:
+- When to use each skill (unique triggers)
+- What each skill does that others don't (unique value)
+- How skills complement each other (workflow relationships)
+- Which skills should never be confused (clear boundaries)
+
+**Reference Standards:**
+- Use user-identified high-performing skills as templates
+- Apply their successful patterns to underperforming skills
+- Ensure all skills meet the standard of the best-performing ones
+
+STEP 5: MAKE SPECIFIC RECOMMENDATIONS
+------------------------------------
+For each prompt section that needs improvement:
+
+**Mandatory Requirements:**
+- **EVERY empty/null field MUST receive a complete recommendation**
+- **ALL skills must be positioned uniquely within the ecosystem**
+- **Use user-identified benchmark skills as templates where applicable**
+
+**Recommendation Format:**
+1. **Current Issue:** What's unclear, missing, or problematic
+2. **Specific Change:** Exact text improvement needed (complete content for empty fields)
+3. **Rationale:** Why this change improves distinguishability/clarity
+4. **Ecosystem Positioning:** How this differentiates from other skills
+5. **Reference:** How it aligns with benchmark skills or good examples
+
+**Priority Levels:**
+- **Critical:** Empty/null content, indistinguishable skills, or contradictory guidance
+- **High:** Unclear boundaries, missing key information, or user-identified problem areas
+- **Medium:** Could be clearer or more specific
+- **Low:** Minor wording improvements
+
+**Content Creation Standards:**
+For empty/null fields, provide:
+- Complete, comprehensive content (not just suggestions)
+- Content that clearly differentiates from all other skills
+- Consistent formatting and tone with benchmark skills
+- Specific, actionable guidance that prevents confusion
+
+STEP 6: VALIDATE RECOMMENDATIONS
+--------------------------------
+Before finalizing recommendations:
+
+1. **Cross-Check Consistency:** Do recommendations align across agent and skill levels?
+2. **Implementation Feasibility:** Are changes realistic given current skill code?
+3. **User Experience:** Will changes actually improve skill selection in chat?
+4. **Reference Alignment:** Do recommendations follow patterns from good examples?
+
+OUTPUT FORMAT
+=============
+Create a new file called **prompt_recommendations.txt** with the analysis results.
+
+Structure the file content as:
+
+```
+PROMPT IMPROVEMENT RECOMMENDATIONS
+=================================
+
+AGENT-LEVEL RECOMMENDATIONS
+---------------------------
+[For each response guidance field with issues]
+
+SKILL-LEVEL RECOMMENDATIONS  
+---------------------------
+[Organized by skill name, then by prompt field]
+
+CRITICAL DISTINGUISHABILITY ISSUES
+----------------------------------
+[Skills that are too similar and specific fixes needed]
+
+IMPLEMENTATION PRIORITY
+-----------------------
+[Ordered list of most impactful changes first]
+```
+
+QUALITY CRITERIA FOR GOOD PROMPTS
+=================================
+
+**Agent-Level Prompts Should:**
+- Provide clear decision trees for skill selection
+- Handle edge cases and conflicts gracefully
+- Maintain consistency across all interaction modes
+- Give specific guidance for parameter selection defaults
+
+**Skill-Level Prompts Should:**
+- Make each skill's unique value proposition clear
+- Provide unambiguous boundaries and limitations
+- Include practical, realistic example questions
+- Give comprehensive parameter guidance with defaults
+
+**Overall System Should:**
+- Eliminate overlapping or conflicting guidance
+- Create clear pathways for users to reach the right skill
+- Provide consistent experience across all skills
+- Enable confident skill selection by the AI
+
+IMPLEMENTATION OPTIONS
+=====================
+
+After creating the prompt_recommendations.txt file, ask the user if they would like you to implement the recommended changes directly in the agent_export.json file.
+
+**What you can implement:**
+- Update skillSelectionResponseGuidance, parameterSelectionResponseGuidance, and answerResponseGuidance fields
+- Modify skill descriptions, detailedDescriptions, capabilities, limitations, and exampleQuestions
+- Update parameterGuidance for individual skills
+- Add missing content for incomplete skills
+
+**Implementation Process:**
+1. Present the user with the prompt_recommendations.txt file
+2. Ask: "Would you like me to implement these recommendations by making the changes directly to the agent_export.json file?"
+3. If yes, proceed with implementing changes using the Edit tool on the JSON file
+4. Focus on the highest priority changes first
+5. After making changes, provide a summary of what was modified
+
+**Important Notes:**
+- DO NOT automatically make changes - always ask for permission first
+- Make changes incrementally, focusing on critical and high priority items
+- Use exact line numbers and content from the recommendations file
+- Test readability after each major change
+- Preserve all existing JSON structure and formatting
+
+NOTES FOR IMPLEMENTATION
+=======================
+- Focus on actionable, specific changes rather than general suggestions
+- Prioritize changes that improve skill distinguishability in chat scenarios
+- Use exact wording from good examples when possible
+- Consider both AI and end-user perspectives when making recommendations
+- Remember that prompts drive the user experience - clarity is paramount
