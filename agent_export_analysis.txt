@@ -1,0 +1,237 @@
+AGENT EXPORT JSON STRUCTURE ANALYSIS
+====================================
+
+This document provides a guide for understanding the structure of agent export JSON files.
+The export contains multiple sections with different types of configuration data.
+
+METADATA SECTION
+================
+Location: Root level "metadata" object
+Contains: Infrastructure and environment information
+
+Key Fields:
+- metadata.sourceEnvironment: Source URL (e.g., "https://overproof.poc.answerrocket.com")
+- metadata.tenant: Tenant identifier (e.g., "overproof")
+- metadata.transporterRunId: Export run identifier
+- metadata.interfaceVersion: Export format version
+
+Sub-sections:
+- metadataCollections.databases: Database connection info
+  * id: Database UUID
+  * name: Database display name
+  * createdUserName: Creator information
+  
+- metadataCollections.domain_datasets: Dataset definitions
+  * id: Dataset UUID
+  * name: Dataset display name (e.g., "Snowflake Ar Max Interpretation Table")
+  * createdUtc: Creation timestamp
+  
+- metadataCollections.etl_table: ETL table mappings
+  * id: Table identifier
+  * name: Internal table name with hash
+  
+- metadataCollections.copilots: Copilot/agent references
+  * id: Copilot UUID
+  * name: Agent display name
+
+COLLECTIONS SECTION
+===================
+Location: Root level "collections" object
+Contains: Actual configuration data for all system components
+
+DATABASE CONFIGURATION
+----------------------
+Location: collections.databases array
+Contains: Database connection details and credentials
+
+Key Fields:
+- _id: Database UUID (matches metadata reference)
+- name: Database display name
+- ownerId: Owner user UUID
+- connectionString: Database connection details
+
+DATASET CONFIGURATION  
+---------------------
+Location: collections.domain_datasets array
+Contains: Dataset schema and field definitions
+
+Key Fields:
+- _id: Dataset UUID (matches metadata reference)
+- name: Dataset display name
+- databaseId: Reference to database UUID
+- Detailed schema information with field mappings
+
+COPILOT/AGENT CONFIGURATION
+===========================
+Location: collections.copilots array (usually single item)
+Contains: Main agent configuration including prompts and skills
+
+RESPONSE GUIDANCE FIELDS
+------------------------
+Location: collections.copilots[0] object (root level of copilot config)
+
+Key Fields:
+- skillSelectionResponseGuidance: Instructions for AI when selecting which skill to use
+  * Contains guidance about skill preferences, edge cases, and restrictions
+  * Example: "Choose the most relevant function from the list..."
+  
+- parameterSelectionResponseGuidance: Instructions for AI when choosing skill parameters
+  * Contains guidance about defaults, time periods, metrics, and parameter requirements
+  * Example: "Use the ParameterGuidance tag to smartly choose the parameters..."
+  
+- answerResponseGuidance: Instructions for AI when providing final responses
+  * Contains guidance about response formatting, data limitations, and clarifications
+  * Example: "Reply to the user's question in a direct and clear manner..."
+
+PERSONA AND SYSTEM PROMPTS
+--------------------------
+Location: collections.copilots[0] object (root level of copilot config)
+
+Key Fields:
+- persona: AI assistant personality and role definition
+  * Defines the AI's identity, mission, and collaboration style
+  * Example: "You are Max, an expert data analyst..."
+  
+- systemPrompt: Main system prompt template with Jinja2 syntax
+  * Contains template variables like {{ today }}, {{ pipeline.copilot.persona }}
+  * Includes data schema injection and conditional skill rendering
+  * Uses Jinja2 conditionals for different response modes
+
+DATABASE AND DATASET REFERENCES
+-------------------------------
+Location: collections.copilots[0] object (root level of copilot config)
+
+Key Fields:
+- databaseId: UUID reference to the database configuration
+- datasetId: UUID reference to the primary dataset
+- datasetIds: Array of dataset UUIDs if multiple datasets are used
+
+UI AND DISPLAY CONFIGURATION
+----------------------------
+Location: collections.copilots[0] object (root level of copilot config)
+
+Key Fields:
+- description: HTML content for the agent's web interface
+  * Contains full HTML with CSS styling and JavaScript
+  * Includes welcome page, data overview, and interactive cards
+  
+- disclaimer: User-facing disclaimer text
+- image: Base64-encoded image data for agent avatar/logo
+- aboutMax: Additional information about the agent (if used)
+
+SKILLS CONFIGURATION
+===================
+Location: collections.copilots[0].copilotSkills array
+Contains: Individual skill definitions and their metadata
+
+SKILL DESCRIPTION FIELDS
+------------------------
+Location: Each item in copilotSkills array
+
+Key Fields:
+- name: Skill display name
+- detailedName: Internal skill identifier
+- description: Brief skill description
+- detailedDescription: Comprehensive skill explanation
+  * Explains when to use the skill and its purpose
+  
+- capabilities: What the skill can accomplish
+  * Lists functional capabilities and features
+  * Example: "Provides a table based on the inputted metric..."
+  
+- limitations: What the skill cannot do
+  * Clear restrictions and boundaries
+  * Example: "Users cannot remove specific columns..."
+  
+- exampleQuestions: Sample questions that work with the skill
+  * Provides templates with [placeholders] for dynamic content
+  * Example: "How is [filter] performing in each [dimension]?"
+
+PARAMETER GUIDANCE
+-----------------
+Location: Each skill's parameterGuidance field
+
+Contains:
+- Time period handling instructions with template variables
+- Breakout dimension guidance
+- Filtering instructions
+- Parameter-specific requirements
+- Uses template variables like {{today}} and {{copilot_dataset_end_date}}
+
+SKILL TECHNICAL CONFIGURATION
+-----------------------------
+Location: Each skill in copilotSkills array
+
+Key Fields:
+- entryFile: Python file name (e.g., "market_share_analysis.py")
+- entryPoint: Function name to execute (e.g., "market_share_analysis")
+- packageVersion: Git commit hash or version identifier
+- copilotSkillType: Skill type (e.g., "classic")
+- repositoryId: Source code repository reference
+
+SKILL PARAMETERS
+---------------
+Location: Each skill's parameters field (may be null)
+
+Structure (when present):
+- Array of parameter objects with:
+  * copilotSkillParameterId: Unique parameter UUID
+  * name: Parameter name
+  * value: Default value
+  * parameterSourceKey: Source key mapping
+  * isMulti: Whether parameter accepts multiple values
+  * constrainedValues: Array of allowed values (if restricted)
+  * description: Parameter description
+
+VERSION AND AUDIT INFORMATION
+-----------------------------
+Location: Throughout various objects
+
+Key Fields:
+- createdUserId: UUID of creating user
+- createdUtc: Creation timestamp
+- lastModifiedUserId: UUID of last modifier
+- lastModifiedUtc: Last modification timestamp
+- version: Version UUID for change tracking
+
+ADDITIONAL COLLECTIONS
+======================
+The export may contain additional arrays in collections:
+
+- llm_prompts: Custom LLM prompt templates
+- layouts: UI layout configurations  
+- skill_repositories: Source code repository information
+- copilot_skill_artifacts: Skill-related assets
+- skills: Additional skill definitions
+
+TEMPLATE VARIABLES REFERENCE
+============================
+Common template variables found throughout the configuration:
+
+System Variables:
+- {{ today }}: Current date
+- {{ pipeline.copilot.persona }}: Agent persona
+- {{ copilot_dataset_end_date }}: Dataset end date
+
+Data Variables:
+- {{ dataset.name }}: Dataset name
+- {{ metric.name }}: Metric names
+- {{ dimension.name }}: Dimension names
+
+Skill Variables:
+- {{ active_tool.name }}: Currently active skill
+- {{ skill.metadata.capabilities }}: Skill capabilities
+- {{ skill.metadata.limitations }}: Skill limitations
+- {{ skill.metadata.example_questions }}: Example questions
+- {{ skill.metadata.parameter_guidance }}: Parameter guidance
+
+NOTES FOR FUTURE EXPORTS
+========================
+- The overall structure should remain consistent across exports
+- UUIDs will change but the field names and hierarchy should be the same
+- Template variables and Jinja2 syntax should be consistent
+- The metadata section provides a high-level overview before diving into collections
+- Skills array length may vary but individual skill structure should be consistent
+- Some skills may have null parameters while others have detailed parameter arrays
+- HTML in description field may vary significantly between different agents
+- System prompts use conditional rendering based on reply_mode variables
