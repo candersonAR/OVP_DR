@@ -53,13 +53,62 @@ Key Fields:
 DATASET CONFIGURATION  
 ---------------------
 Location: collections.domain_datasets array
-Contains: Dataset schema and field definitions
+Contains: Comprehensive dataset schema and field definitions
 
 Key Fields:
 - _id: Dataset UUID (matches metadata reference)
-- name: Dataset display name
+- name: Dataset display name (e.g., "Snowflake Ar Max Interpretation Table")
 - databaseId: Reference to database UUID
-- Detailed schema information with field mappings
+- description: Dataset description and data availability info
+- owner: Owner user UUID
+
+DATASET SCHEMA STRUCTURE
+------------------------
+Each dataset contains a domainObjects array with factEntity objects that define:
+
+Dimensions/Attributes Array:
+Each dimension includes:
+- type: "normalAttribute" for dimensions
+- id: Unique attribute identifier (e.g., "ar_max_menu_table__brand_name")
+- name: Internal field name (e.g., "brand_name")
+- displayNames: User-friendly names array (e.g., ["Brand Name"])
+- description: Field description (may be null)
+- dbColumn: Actual database column name
+- simplifiedDataType: Data type ("string", "number", "date")
+- hideFromUser: Boolean - whether field is visible to end users
+- isActive: Boolean - whether field is currently active
+- isDeleted: Boolean - whether field is deleted
+- loadDimensionValues: Boolean - whether to load values for filtering
+- dimensionValueMappingList: Array of value mappings for aliases
+  Example: {"value": "Hendrick's", "mappedValues": ["Hendrick's", "Hendricks"]}
+
+Calculated Metrics Array:
+Each metric includes:
+- type: "calculatedMetric"
+- id: Unique metric identifier
+- name: Internal metric name (e.g., "menu_placements")
+- displayNames: User-friendly names array (e.g., ["Menu Placements"])
+- description: Metric description (may be null)
+- displayFormat: Display formatting (e.g., ",d", ",.2%")
+- sql: SQL expression for calculation
+- sqlAggExpression: Full SQL aggregation (e.g., "count(distinct menu_id)")
+- metricType: Type of metric ("basic", "share", etc.)
+- positiveDirectionUp: Boolean - whether higher values are better
+- growthOutputFormat: Format for growth calculations (e.g., ",.2%")
+- hidePercentageChange: Boolean - whether to hide percentage change
+- isActive: Boolean - whether metric is currently active
+- isDeleted: Boolean - whether metric is deleted
+
+Domain Attribute Statistics:
+Statistical information for each dimension:
+- distinctCount: Number of unique values
+- nullCount: Number of null values
+- minValue/maxValue/avgValue: Statistical measures (for numeric fields)
+- createdUtc/lastModifiedUtc: Timestamps
+
+Data Source Definition:
+- derivedTableSql: Complex SQL showing how dataset combines multiple sources
+- commonTableExpressionMap: SQL CTEs used in data preparation
 
 COPILOT/AGENT CONFIGURATION
 ===========================
@@ -194,15 +243,26 @@ Key Fields:
 - lastModifiedUtc: Last modification timestamp
 - version: Version UUID for change tracking
 
-ADDITIONAL COLLECTIONS
-======================
-The export may contain additional arrays in collections:
+DATASET EXAMPLES
+================
+Common dimension types found:
+- Brand/Product Dimensions: brand_name, product_category_name, supplier_name
+- Geographic Dimensions: country_code, state_name, venue__city, venue__county
+- Cocktail Dimensions: cocktail__name, cocktail_group, cocktail_family
+- Venue Dimensions: venue__name, venue__category_name, chain_name
+- Time Dimensions: max_time_date
 
-- llm_prompts: Custom LLM prompt templates
-- layouts: UI layout configurations  
-- skill_repositories: Source code repository information
-- copilot_skill_artifacts: Skill-related assets
-- skills: Additional skill definitions
+Common metric types found:
+- Count Metrics: menu_placements (count distinct menu_id), venue_placements
+- Share Metrics: menu_placements_share, venue_placements_share  
+- Sales Metrics: sold_9le, sold_cases
+- Calculated Metrics: cocktail_uplift, single_spirit_uplift, menu_uplift
+
+Data Source Integration:
+The derivedTableSql typically shows UNION of multiple data sources:
+- Menu data: Contains cocktail and menu placement information
+- Depletion data: Contains actual sales figures (sold_9le, sold_cases)
+- Some fields are NULL in one source but populated in the other
 
 TEMPLATE VARIABLES REFERENCE
 ============================
